@@ -103,6 +103,16 @@ export class ApiClient {
     return this.#json("PATCH", `/admin/people/${encodeURIComponent(personId)}`, changes);
   }
 
+  /** What an admin may change, with the values in force. @returns {Promise<{settings: import("../core/protocol.js").Setting[]}>} */
+  getSettings() {
+    return this.#json("GET", "/admin/settings");
+  }
+
+  /** @param {Record<string, number | string | null>} changes only what changed; null is no limit */
+  saveSettings(changes) {
+    return this.#json("PATCH", "/admin/settings", changes);
+  }
+
   /**
    * Give someone a new password; it ends all their sessions.
    * @param {string} personId

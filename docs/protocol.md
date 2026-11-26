@@ -37,7 +37,9 @@ Everything lives under `/api/v1/`. Requests and answers are JSON, except turns, 
 | `POST /auth/sign-out` | Ends this session (on the server, not just the cookie). |
 | `POST /auth/password` | `{current_password, new_password}`: `403 wrong_password` if the current one is wrong. Ends every session of this person and starts a fresh one here. |
 
-- Sessions use an HttpOnly, SameSite=Lax, Path=/ cookie that expires after 7 days idle or 30 days total.
+- Sessions use an HttpOnly, SameSite=Lax, Path=/ cookie. How long one lasts unused, and at most, is an admin
+  setting (default 7 and 30 days, or no limit); a session also ends at its cookie's expiry, set when it began
+  (at most 400 days).
 - A username is 2 to 32 characters `a-z 0-9 . _ -` (any case; stored in lower case). A password is 15 to 256
   characters after Unicode NFC normalisation; any characters, spaces too.
 - Sign-in and setup are limited per client address and per username: `429 too_many_attempts` with
@@ -65,6 +67,16 @@ Every endpoint here needs a signed-in admin: `403 admin_required` otherwise (and
 An admin cannot disable themselves, take away their own admin rights or set their own password here
 (`409 not_yourself`; their own password is changed with `auth/password`), and there is always an enabled admin
 (`409 last_admin`). An unknown id is `404 not_found`.
+
+## Settings (admins)
+
+| Method and path | What it does |
+|:--|:--|
+| `GET /admin/settings` | `{settings: [{key, label, help, default, min, max, nullable, value}]}`: what an admin may change. `value` `null` means no limit. |
+| `PATCH /admin/settings` | `{key: value, …}`, only what changed: checked as a whole (`422 invalid_setting` names every problem; nothing is saved then), in force at once. Answers like `GET`. |
+
+Today: `session_idle_days` and `session_max_days`, whole days from 1 to 3650 or `null`. Tightening a limit ends
+the sessions now past it; relaxing one never brings back a session that had already ended.
 
 ## Endpoints
 

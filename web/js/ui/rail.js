@@ -17,10 +17,11 @@ export class RailView {
   /**
    * @param {{user: import("../core/protocol.js").User, onOpen: (chatId: string | null) => void,
    *          onRename: (chatId: string, title: string) => Promise<boolean>, onDelete: (chat: Chat) => void,
-   *          onChangePassword: () => void, onSignOut: () => void, onPeople?: () => void, signal: AbortSignal}} options
-   *   onPeople: shown to admins only; signal: ends the rail's listeners on the document when the app closes
+   *          onChangePassword: () => void, onSignOut: () => void, onPeople?: () => void, onSettings?: () => void,
+   *          signal: AbortSignal}} options
+   *   onPeople, onSettings: shown to admins only; signal: ends the rail's listeners on the document when the app closes
    */
-  constructor({ user, onOpen, onRename, onDelete, onChangePassword, onSignOut, onPeople, signal }) {
+  constructor({ user, onOpen, onRename, onDelete, onChangePassword, onSignOut, onPeople, onSettings, signal }) {
     this.onOpen = onOpen;
     this.onRename = onRename;
     this.onDelete = onDelete;
@@ -44,7 +45,8 @@ export class RailView {
     const accountButton = el("button", { type: "button", class: "rail-account", "aria-haspopup": "menu", "aria-expanded": "false" },
       icon("user"), el("span", { class: "rail-account-name" }, user.name));
     const accountMenu = menu([
-      ...(onPeople && user.role === "admin" ? [/** @type {[string, () => void]} */ ([text.people, onPeople])] : []),
+      ...(user.role === "admin" && onPeople ? [/** @type {[string, () => void]} */ ([text.people, onPeople])] : []),
+      ...(user.role === "admin" && onSettings ? [/** @type {[string, () => void]} */ ([text.settings, onSettings])] : []),
       [text.changePassword, onChangePassword],
       [text.signOut, onSignOut],
     ]);

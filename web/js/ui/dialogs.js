@@ -12,12 +12,14 @@ import { text } from "./strings.js";
  * @param {HTMLElement} host where the dialog is attached (a modal dialog may host another)
  * @param {{title: string, body?: string, fields?: Node[], confirm: string, danger?: boolean,
  *          onConfirm: () => Promise<void>, explain?: (problem: unknown) => string | null,
- *          afterClose?: () => void}} options
- *   explain: what to say when onConfirm fails, or null to close quietly (it handled the problem itself)
+ *          afterClose?: () => void, returnTo?: HTMLElement | null}} options
+ *   explain: what to say when onConfirm fails, or null to close quietly (it handled the problem itself);
+ *   returnTo: what gets focus back on close (default: what had it when the dialog opened)
  * @returns {HTMLDialogElement} already open
  */
 export function askDialog(host, { title, body, fields = [], confirm, danger = false, onConfirm,
-  explain = (problem) => (problem instanceof Error && problem.message) || text.failed(""), afterClose }) {
+  explain = (problem) => (problem instanceof Error && problem.message) || text.failed(""), afterClose,
+  returnTo = /** @type {HTMLElement | null} */ (document.activeElement) }) {
   const titleId = `ask-${Math.random().toString(36).slice(2)}`;
   const cancel = el("button", { type: "button", class: "button button-quiet" }, text.cancel);
   const yes = /** @type {HTMLButtonElement} */ (el("button", { type: "submit",
@@ -31,7 +33,6 @@ export function askDialog(host, { title, body, fields = [], confirm, danger = fa
     error,
     el("div", { class: "form-actions" }, cancel, yes));
   const dialog = /** @type {HTMLDialogElement} */ (el("dialog", { class: "dialog", "aria-labelledby": titleId }, form));
-  const returnTo = /** @type {HTMLElement | null} */ (document.activeElement);
 
   cancel.addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => {
@@ -61,6 +62,6 @@ export function askDialog(host, { title, body, fields = [], confirm, danger = fa
   });
   host.append(dialog);
   dialog.showModal();
-  (/** @type {HTMLElement | null} */ (form.querySelector("input")) ?? cancel).focus();
+  (/** @type {HTMLElement | null} */ (form.querySelector("input:not(:disabled)")) ?? cancel).focus();
   return dialog;
 }

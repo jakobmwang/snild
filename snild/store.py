@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, NamedTuple, TypeVar
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 LEGACY_USER = "local"  # schema 1 had no accounts: its chats belong to "local" until the first admin exists
 MAX_SESSIONS_PER_USER = 50  # signing in again and again (a script) ends the oldest sessions past this many
 
@@ -87,6 +87,13 @@ SCHEMA_V2 = [
     """CREATE TABLE setup_codes (
     code_hash  TEXT PRIMARY KEY,                 -- SHA-256 of the one-time code that creates the first admin
     expires_at REAL NOT NULL
+)""",
+]
+
+SCHEMA_V3 = [
+    """CREATE TABLE settings (
+    key   TEXT PRIMARY KEY,                      -- a key of settings.REGISTRY; only changed values are kept
+    value TEXT NOT NULL                          -- JSON; null means no limit
 )""",
 ]
 
@@ -200,6 +207,9 @@ class Store:
                     self._db.execute(statement)
                 if version == 1:
                     self._settle_pending_calls()
+            if version < 3:
+                for statement in SCHEMA_V3:
+                    self._db.execute(statement)
             self._db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     def _settle_pending_calls(self) -> None:
@@ -403,13 +413,17 @@ class Store:
             return True
 
     @on_reader
-    def session_user(self, token_hash: str, now: float, idle_seconds: float) -> tuple[dict[str, Any], dict[str, Any]] | None:
-        """(session, user) for a live session of someone who is not disabled; None otherwise."""
+    def session_user(self, token_hash: str, now: float, idle_s: float | None,
+                     max_s: float | None) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        """(session, user) for a live session of someone who is not disabled; None otherwise. A session lives
+        until its cookie's deadline (expires_at, fixed when it began) and within the limits in force now."""
         row = self._db.execute(
             "SELECT s.token_hash, s.created_at AS s_created, s.last_seen_at, s.expires_at, u.*"
             " FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?", (token_hash,)
         ).fetchone()
-        if row is None or row["disabled"] or row["expires_at"] <= now or row["last_seen_at"] + idle_seconds <= now:
+        if row is None or row["disabled"] or row["expires_at"] <= now \
+                or (max_s is not None and row["s_created"] + max_s <= now) \
+                or (idle_s is not None and row["last_seen_at"] + idle_s <= now):
             return None
         data = dict(row)
         session = {"token_hash": data.pop("token_hash"), "created_at": data.pop("s_created"),
@@ -425,9 +439,28 @@ class Store:
         self._db.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
 
     @on_db_thread
-    def delete_stale_sessions(self, now: float, idle_seconds: float) -> int:
-        return self._db.execute("DELETE FROM sessions WHERE expires_at <= ? OR last_seen_at + ? <= ?",
-                                (now, idle_seconds, now)).rowcount
+    def delete_stale_sessions(self, now: float, idle_s: float | None, max_s: float | None) -> int:
+        return self._delete_stale_sessions(now, idle_s, max_s)
+
+    # --- settings ----------------------------------------------------------------------------------------------
+
+    @on_reader
+    def load_settings(self) -> dict[str, Any]:
+        return {r["key"]: json.loads(r["value"]) for r in self._db.execute("SELECT key, value FROM settings")}
+
+    @on_db_thread
+    def save_settings(self, changes: dict[str, Any], clock: Callable[[], float],
+                      limits: list[tuple[float | None, float | None]]) -> None:
+        """Save changed settings. Sessions that have ended under any of `limits` (the old ones and the new ones,
+        as (idle, max) seconds) are deleted first, so relaxing a limit never brings an ended session back. The
+        time is read once the write lock is held: a session cannot end unnoticed while the save waits for it."""
+        with self._transaction():
+            now = clock()
+            for idle_s, max_s in limits:
+                self._delete_stale_sessions(now, idle_s, max_s)
+            self._db.executemany("INSERT INTO settings (key, value) VALUES (?, ?)"
+                                 " ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                                 [(key, json.dumps(value)) for key, value in changes.items()])
 
     # --- transcript --------------------------------------------------------------------------------------------
 
@@ -549,6 +582,16 @@ class Store:
                                             (leaving,)).fetchone()
         if leaving_is_admin and others == 0:
             raise LastAdmin()
+
+    def _delete_stale_sessions(self, now: float, idle_s: float | None, max_s: float | None) -> int:
+        where, params = ["expires_at <= ?"], [now]
+        if max_s is not None:
+            where.append("created_at + ? <= ?")
+            params += [max_s, now]
+        if idle_s is not None:
+            where.append("last_seen_at + ? <= ?")
+            params += [idle_s, now]
+        return self._db.execute(f"DELETE FROM sessions WHERE {' OR '.join(where)}", params).rowcount
 
     def _insert_session(self, session: dict[str, Any]) -> None:
         self._db.execute(

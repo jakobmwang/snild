@@ -8,28 +8,6 @@ from conftest import PASSWORD
 NEW_PASSWORD = "another long enough password"
 
 
-def session_of(client, username: str, password: str = PASSWORD) -> str:
-    """Sign someone in on a browser of their own, leaving this one as it was (signing in here would end the
-    session this browser holds)."""
-    kept = client.http.cookies.get("snild_session")
-    client.http.cookies.clear()
-    response = client.sign_in(username, password)
-    assert response.status_code == 200, response.text
-    client.http.cookies.clear()
-    client.http.cookies.set("snild_session", kept)
-    return response.cookies.get("snild_session")
-
-
-def works(client, token: str) -> bool:
-    kept = client.http.cookies.get("snild_session")
-    client.http.cookies.clear()
-    client.http.cookies.set("snild_session", token)
-    ok = client.http.get("/api/v1/chats").status_code == 200
-    client.http.cookies.clear()
-    client.http.cookies.set("snild_session", kept)
-    return ok
-
-
 def person(client, username: str) -> str:
     people = client.http.get("/api/v1/admin/people").json()["people"]
     return next(p["id"] for p in people if p["username"] == username)
@@ -41,7 +19,7 @@ def test_an_admin_adds_someone_who_can_then_sign_in(client):
     assert added.status_code == 201, added.text
     assert added.json()["person"] == {"id": added.json()["person"]["id"], "username": "bob", "name": "Bob B",
                                       "role": "member", "disabled": False}
-    assert session_of(client, "bob")
+    assert client.session_of("bob")
     listed = client.http.get("/api/v1/admin/people").json()["people"]
     assert [p["username"] for p in listed] == ["alice", "bob"]
     assert all(set(p) == {"id", "username", "name", "role", "disabled"} for p in listed)  # never a hash
@@ -53,20 +31,20 @@ def test_an_admin_adds_someone_who_can_then_sign_in(client):
 
 def test_a_new_password_from_an_admin_ends_the_old_one_and_every_session(client):
     client.add_user("bob")
-    old = session_of(client, "bob")
+    old = client.session_of("bob")
     response = client.http.post(f"/api/v1/admin/people/{person(client, 'bob')}/password", json={"password": NEW_PASSWORD})
     assert response.status_code == 200, response.text
-    assert not works(client, old)
-    assert session_of(client, "bob", NEW_PASSWORD)
+    assert not client.works(old)
+    assert client.session_of("bob", NEW_PASSWORD)
 
 
 def test_disabling_ends_sessions_and_role_changes_take_effect(client):
     client.add_user("bob")
     bob = f"/api/v1/admin/people/{person(client, 'bob')}"
-    old = session_of(client, "bob")
+    old = client.session_of("bob")
     assert client.http.patch(bob, json={"role": "admin"}).json()["person"]["role"] == "admin"
     assert client.http.patch(bob, json={"disabled": True}).json()["person"]["disabled"] is True
-    assert not works(client, old)
+    assert not client.works(old)
     assert client.http.patch(bob, json={"disabled": False}).json()["person"]["disabled"] is False
     assert client.http.patch(bob, json={"role": "member"}).json()["person"] == {
         "id": person(client, "bob"), "username": "bob", "name": "bob", "role": "member", "disabled": False}
@@ -100,7 +78,7 @@ def test_there_is_always_an_enabled_admin(client):
 
 def test_only_admins_manage_people(client):
     client.add_user("bob")
-    bob_session = session_of(client, "bob")
+    bob_session = client.session_of("bob")
     client.http.cookies.clear()
     client.http.cookies.set("snild_session", bob_session)
     for method, path, body in (("GET", "/api/v1/admin/people", None),

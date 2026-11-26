@@ -103,15 +103,19 @@ export class Browser {
   }
 
   async close() {
+    const gone = () => this.proc.exitCode !== null || this.proc.signalCode !== null;
+    const exited = gone() ? Promise.resolve() : new Promise((resolve) => this.proc.once("exit", resolve));
     try {
       await Promise.race([this.send("Browser.close"), sleep(2000)]);
     } catch {
       // already gone
     }
     this.socket.close();
-    if (this.proc.exitCode === null) this.proc.kill("SIGKILL");
-    await sleep(100);
-    rmSync(this.profile, { recursive: true, force: true });
+    await Promise.race([exited, sleep(3000)]);
+    if (!gone()) this.proc.kill("SIGKILL");
+    await Promise.race([exited, sleep(3000)]);
+    // Chrome's helper processes can still be writing to the profile for a moment after it exits.
+    rmSync(this.profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 }
 

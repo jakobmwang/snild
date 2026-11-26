@@ -184,15 +184,17 @@ def test_changing_the_password_signs_out_everywhere_else(config):
 
 def test_sessions_end_when_idle_or_too_old(client):
     accounts = client.http.app.state.accounts
+    idle_s, max_s = accounts.limits()
+    assert (idle_s, max_s) == (7 * 86400, 30 * 86400)  # the defaults, until an admin changes them
     now = time.time()
-    accounts.clock = lambda: now + auth.IDLE_S - 60
+    accounts.clock = lambda: now + idle_s - 60
     assert client.http.get("/api/v1/chats").status_code == 200  # in use: last_seen moves on
-    accounts.clock = lambda: now + 2 * auth.IDLE_S - 120
+    accounts.clock = lambda: now + 2 * idle_s - 120
     assert client.http.get("/api/v1/chats").status_code == 200
-    accounts.clock = lambda: now + auth.ABSOLUTE_S + 1
+    accounts.clock = lambda: now + max_s + 1
     assert client.http.get("/api/v1/chats").status_code == 401  # however busy, 30 days is the limit
     client.sign_in("alice")
-    later = accounts.clock() + auth.IDLE_S + 1
+    later = accounts.clock() + idle_s + 1
     accounts.clock = lambda: later
     assert client.http.get("/api/v1/chats").status_code == 401  # a week unused
 

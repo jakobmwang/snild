@@ -80,6 +80,29 @@ class Api:
     def sign_in(self, username: str, password: str = PASSWORD):
         return self.http.post("/api/v1/auth/sign-in", json={"username": username, "password": password})
 
+    def session_of(self, username: str, password: str = PASSWORD) -> str:
+        """Sign someone in on a browser of their own and return their session token, leaving this browser's
+        session as it was (signing in here would end it)."""
+        kept = self.http.cookies.get("snild_session")
+        self.http.cookies.clear()
+        response = self.sign_in(username, password)
+        assert response.status_code == 200, response.text
+        self.http.cookies.clear()
+        if kept:
+            self.http.cookies.set("snild_session", kept)
+        return response.cookies.get("snild_session")
+
+    def works(self, token: str) -> bool:
+        """Whether a session token still gets someone in."""
+        kept = self.http.cookies.get("snild_session")
+        self.http.cookies.clear()
+        self.http.cookies.set("snild_session", token)
+        ok = self.http.get("/api/v1/chats").status_code == 200
+        self.http.cookies.clear()
+        if kept:
+            self.http.cookies.set("snild_session", kept)
+        return ok
+
     def new_chat(self) -> dict[str, Any]:
         response = self.http.post("/api/v1/chats", json={})
         assert response.status_code == 201, response.text

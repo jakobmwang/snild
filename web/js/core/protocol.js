@@ -20,6 +20,8 @@
  * @typedef {{id: string, username: string, name: string, role: "admin" | "member"}} User
  * @typedef {{version: string, setup_required: boolean, signed_in: boolean, user: User | null}} AuthStatus
  * @typedef {User & {disabled: boolean}} Person
+ * @typedef {{key: string, label: string, help: string, default: number | null, min: number, max: number,
+ *            nullable: boolean, value: number | null}} Setting
  * @typedef {{version: string, user: User, models: ModelInfo[], default_model: string | null,
  *            emulator: boolean, limits: {message_chars: number, tool_result_chars: number}}} Bootstrap
  *

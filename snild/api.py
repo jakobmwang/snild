@@ -13,9 +13,9 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from . import __version__
-from .auth import ABSOLUTE_S
-from .auth import Accounts, AuthError, SignedIn, public_user, without_controls
+from .auth import Accounts, AuthError, Issued, SignedIn, public_user, without_controls
 from .runs import Run, RunManager, StoredRun, TurnError
+from .settings import SettingsError, validate
 from .store import Store
 from .transcript import (
     MAX_CALL_ID_CHARS,
@@ -189,11 +189,12 @@ def _peer(request: Request) -> str:
     return request.client.host if request.client else ""
 
 
-def _signed_in_response(request: Request, user: dict[str, Any], token: str) -> JSONResponse:
+def _signed_in_response(request: Request, user: dict[str, Any], issued: Issued) -> JSONResponse:
     accounts = _accounts(request)
     response = JSONResponse({"user": public_user(user)})
-    response.set_cookie(accounts.cookie_name, token, max_age=ABSOLUTE_S, path="/", secure=accounts.cookie_secure,
-                        httponly=True, samesite="lax")
+    max_age = max(0, round(issued.expires_at - accounts.clock()))
+    response.set_cookie(accounts.cookie_name, issued.token, max_age=max_age, path="/",
+                        secure=accounts.cookie_secure, httponly=True, samesite="lax")
     return response
 
 
@@ -217,22 +218,22 @@ async def auth_status(request: Request) -> dict[str, Any]:
 @router.post("/auth/setup")
 async def auth_setup(request: Request, body: SetupIn) -> JSONResponse:
     try:
-        user, token = await _accounts(request).setup(_peer(request), body.code, body.username, body.display_name,
+        user, issued = await _accounts(request).setup(_peer(request), body.code, body.username, body.display_name,
                                                      body.password)
     except AuthError as e:
         raise _auth_call(e) from None
-    return _signed_in_response(request, user, token)
+    return _signed_in_response(request, user, issued)
 
 
 @router.post("/auth/sign-in")
 async def auth_sign_in(request: Request, body: SignInIn) -> JSONResponse:
     try:
         accounts = _accounts(request)
-        user, token = await accounts.sign_in(_peer(request), body.username, body.password,
+        user, issued = await accounts.sign_in(_peer(request), body.username, body.password,
                                              replacing=request.cookies.get(accounts.cookie_name))
     except AuthError as e:
         raise _auth_call(e) from None
-    return _signed_in_response(request, user, token)
+    return _signed_in_response(request, user, issued)
 
 
 @router.post("/auth/sign-out")
@@ -255,10 +256,10 @@ async def auth_sign_out(request: Request) -> JSONResponse:
 @router.post("/auth/password")
 async def auth_password(request: Request, user: UserDep, body: PasswordIn) -> JSONResponse:
     try:
-        token = await _accounts(request).change_password(user, body.current_password, body.new_password)
+        issued = await _accounts(request).change_password(user, body.current_password, body.new_password)
     except AuthError as e:
         raise _auth_call(e) from None
-    return _signed_in_response(request, user.user, token)
+    return _signed_in_response(request, user.user, issued)
 
 
 # --- people (admins) --------------------------------------------------------------------------------------------
@@ -311,6 +312,25 @@ async def set_person_password(request: Request, admin: AdminDep, user_id: str, b
     if not found:
         raise ApiError(404, "not_found", "There is no such person.")
     return {"person": _person(await _person_or_404(request, user_id))}
+
+
+# --- settings (admins) ------------------------------------------------------------------------------------------
+
+@router.get("/admin/settings")
+async def get_settings(request: Request, _: AdminDep) -> dict[str, Any]:
+    return {"settings": _accounts(request).settings.describe()}
+
+
+@router.patch("/admin/settings")
+async def change_settings(request: Request, _: AdminDep, body: dict[str, Any]) -> dict[str, Any]:
+    """A {key: value} map of what changed, checked as a whole against the registry (snild/settings.py)."""
+    try:
+        changes = validate(body)
+    except SettingsError as e:
+        raise ApiError(422, "invalid_setting", str(e)) from None
+    accounts = _accounts(request)
+    await accounts.save_settings(changes)
+    return {"settings": accounts.settings.describe()}
 
 
 # --- chats ------------------------------------------------------------------------------------------------------

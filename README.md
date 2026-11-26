@@ -18,7 +18,7 @@ The log shows a one-time setup code. Open <http://localhost:8080>, enter the cod
 
 ## People
 
-Admins add people under **People** in the account menu, with a password to pass on; everyone can change their own password in the account menu. People also sets a new password for someone who forgot theirs, disables or enables an account, and makes someone an admin. Passwords are 15 to 256 characters; sessions end after 7 days unused or 30 days in all.
+Admins add people under **People** in the account menu, with a password to pass on; everyone can change their own password in the account menu. People also sets a new password for someone who forgot theirs, disables or enables an account, and makes someone an admin. Under **Settings**, admins choose how long a sign-in lasts (by default 7 days unused, 30 days at most, or no limit). Chats are kept until people delete them.
 
 If no admin can sign in any more, `docker compose exec snild snild-admin --help` shows the way back in.
 
@@ -30,7 +30,7 @@ If no admin can sign in any more, `docker compose exec snild snild-admin --help`
 | `SNILD_PUBLISH_PORT` | The host port snild is published on. Default `8080`. |
 | `SNILD_BIND` | The host address the port is published on. Default `127.0.0.1`. |
 
-Set them in the environment or in a `.env` file next to `compose.yaml`. Every other setting is described in `config/snild.toml.example`; copy it to `config/snild.toml` to use it.
+Set them in the environment or in a `.env` file next to `compose.yaml`. What snild needs before it starts is described in `config/snild.toml.example` (copy it to `config/snild.toml` to use it); everything else is under Settings in the browser.
 
 ## Development
 

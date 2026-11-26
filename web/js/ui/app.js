@@ -16,6 +16,7 @@ import { askDialog } from "./dialogs.js";
 import { el, icon } from "./dom.js";
 import { peopleDialog } from "./people.js";
 import { RailView } from "./rail.js";
+import { openSettings } from "./settings.js";
 import { startFailedView } from "./status.js";
 import { text } from "./strings.js";
 import { TranscriptView } from "./transcript.js";
@@ -185,6 +186,7 @@ class App {
       onChangePassword: () => this.#changePassword(),
       onSignOut: () => void this.#signOut(),
       onPeople: () => this.#people(),
+      onSettings: () => this.#settings(),
       signal: this.listeners.signal,
     });
     this.scroller = el("div", { class: "scroller" });
@@ -469,6 +471,18 @@ class App {
       onSignedOut: () => void this.#signedOut() });
     this.shell.append(dialog);
     dialog.showModal();
+  }
+
+  #settings() {
+    openSettings(this.shell, { api: this.api, returnTo: this.rail.accountButton,
+      onSignedOut: () => void this.#signedOut() }).catch((error) => {
+      if (error instanceof ApiError && error.status === 401) {
+        void this.#signedOut();
+        return;
+      }
+      this.appNotice = text.failed("");
+      this.#draw("all");
+    });
   }
 
   #changePassword() {

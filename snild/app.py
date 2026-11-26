@@ -20,12 +20,13 @@ from starlette.exceptions import HTTPException
 from starlette.types import Scope
 
 from . import api
-from .auth import IDLE_S, Accounts, Hasher
+from .auth import Accounts, Hasher
 from .config import Config
 from .providers import build_providers
 from .providers.base import Provider
 from .runs import RunManager
 from .security import SecurityMiddleware
+from .settings import Settings
 from .store import Store
 from .titles import TitleService
 from .tools import ToolContract
@@ -72,7 +73,7 @@ def create_app(config: Config, providers: dict[str, Provider] | None = None, web
         interrupted = await store.interrupt_runs()
         if interrupted:
             log.warning("%d reply(ies) were cut off by the last shutdown", interrupted)
-        accounts = Accounts(store, config, hasher)
+        accounts = Accounts(store, config, hasher, settings=Settings(await store.load_settings()))
         await accounts.hasher.warm()
         active_providers = providers if providers is not None else build_providers(config)
         titles = TitleService(store, config, active_providers)
@@ -132,7 +133,7 @@ async def _prune_sessions(store: Store, accounts: Accounts, every_s: float = 360
     """Delete sessions that have ended (unused or too old), now and then: they are refused anyway."""
     while True:
         try:
-            removed = await store.delete_stale_sessions(accounts.clock(), IDLE_S)
+            removed = await store.delete_stale_sessions(accounts.clock(), *accounts.limits())
             if removed:
                 log.info("removed %d ended session(s)", removed)
         except Exception:

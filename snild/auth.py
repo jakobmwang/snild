@@ -4,7 +4,8 @@
   (NIST SP 800-63B-4 for passwords used alone). They are kept as scrypt hashes, N=2^16, r=8, p=2 (an OWASP
   setting), worked out on two background threads so sign-ins never stall replies.
 - A session is a random 256-bit token in an HttpOnly, SameSite=Lax cookie. The database keeps only its
-  SHA-256. It ends after 7 days unused or 30 days in all, on sign-out, and when the password changes.
+  SHA-256. It ends on sign-out, when the password changes, and after the time an admin set in Settings (by
+  default 7 days unused or 30 days in all; browsers keep a cookie 400 days at most).
 - The first admin is created with a one-time setup code printed in the log (30 minutes, a new one on every
   start while nobody exists, or from `snild-admin setup-code`). Admins add everyone else and set their first
   password; people change it themselves. There is always an enabled admin.
@@ -31,6 +32,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .config import Config
+from .settings import Settings
 from .store import LastAdmin, SetupClosed, SetupCodeInvalid, Store, UsernameTaken, new_id
 
 log = logging.getLogger("snild.auth")
@@ -38,8 +40,7 @@ log = logging.getLogger("snild.auth")
 PASSWORD_MIN, PASSWORD_MAX = 15, 256
 USERNAME = re.compile(r"[a-z0-9._-]{2,32}")
 DISPLAY_NAME_MAX = 64
-IDLE_S = 7 * 24 * 3600
-ABSOLUTE_S = 30 * 24 * 3600
+COOKIE_MAX_S = 400 * 24 * 3600  # browsers keep a cookie this long at most
 TOUCH_EVERY_S = 15 * 60          # last_seen is written at most this often per session
 SETUP_CODE_TTL_S = 30 * 60
 HASH_QUEUE_MAX = 32              # password checks waiting for a thread before snild answers "busy"
@@ -231,6 +232,14 @@ def _minutes(seconds: int) -> str:
 
 
 @dataclass(frozen=True)
+class Issued:
+    """A new session's token, for the cookie, and its deadline: the cookie's Max-Age comes from this, never from
+    the settings read again later."""
+    token: str
+    expires_at: float
+
+
+@dataclass(frozen=True)
 class SignedIn:
     """Who a request belongs to, and the session it came with."""
     user: dict[str, Any]
@@ -247,8 +256,10 @@ def public_user(user: dict[str, Any]) -> dict[str, Any]:
 
 class Accounts:
     def __init__(self, store: Store, config: Config, hasher: Hasher | None = None,
-                 clock: Callable[[], float] = time.time):
+                 clock: Callable[[], float] = time.time, settings: Settings | None = None):
         self.store = store
+        self.settings = settings or Settings()
+        self._saving = asyncio.Lock()  # settings saves one at a time: each prunes under the limits it replaces
         self.hasher = hasher or Hasher()
         self.throttle = Throttle()
         self.clock = clock
@@ -264,7 +275,7 @@ class Accounts:
             return None
         token_hash = digest(token)
         now = self.clock()
-        found = await self.store.session_user(token_hash, now, IDLE_S)
+        found = await self.store.session_user(token_hash, now, *self.limits())
         if found is None:
             return None
         session, user = found
@@ -273,13 +284,31 @@ class Accounts:
         return SignedIn(user, token_hash)
 
     async def still_valid(self, token_hash: str) -> bool:
-        return await self.store.session_user(token_hash, self.clock(), IDLE_S) is not None
+        return await self.store.session_user(token_hash, self.clock(), *self.limits()) is not None
+
+    def limits(self) -> tuple[float | None, float | None]:
+        """How long a sign-in lasts unused, and at most, in seconds (None: no limit), as an admin set them."""
+        return self.settings.seconds("session_idle_days"), self.settings.seconds("session_max_days")
+
+    def cookie_lifetime(self) -> float:
+        """Also the server's own deadline for a new session: limits tightened later still count, relaxed ones
+        never stretch it."""
+        max_s = self.limits()[1]
+        return COOKIE_MAX_S if max_s is None else min(max_s, COOKIE_MAX_S)
+
+    async def save_settings(self, changes: dict[str, Any]) -> None:
+        """Save what an admin changed (already validated) and put it in force at once."""
+        async with self._saving:
+            new = Settings(self.settings.values | changes)
+            limits = [self.limits(), (new.seconds("session_idle_days"), new.seconds("session_max_days"))]
+            await self.store.save_settings(changes, self.clock, limits)
+            self.settings.update(changes)
 
     def _new_session(self, user_id: str) -> tuple[str, dict[str, Any]]:
         token = secrets.token_urlsafe(32)
         now = self.clock()
         return token, {"token_hash": digest(token), "user_id": user_id, "created_at": now,
-                       "expires_at": now + ABSOLUTE_S}
+                       "expires_at": now + self.cookie_lifetime()}
 
     # --- the first admin ---------------------------------------------------------------------------------------
 
@@ -311,7 +340,7 @@ class Accounts:
             raise AuthError(403, "invalid_setup_code",
                             "That setup code is wrong or has expired. Restarting snild prints a new one.") from None
         log.info("first admin %r created", username)
-        return user, token
+        return user, Issued(token, session["expires_at"])
 
     # --- signing in and out ------------------------------------------------------------------------------------
 
@@ -346,7 +375,7 @@ class Accounts:
             raise AuthError(*INVALID_CREDENTIALS)
         self.throttle.forgive(attempt)  # only failures count: a household behind one address never locks
         await self.sign_out(replacing)  # itself out by signing in
-        return user, token
+        return user, Issued(token, session["expires_at"])
 
     async def sign_out(self, token: str | None) -> None:
         if token and len(token) <= 100:
@@ -375,7 +404,7 @@ class Accounts:
                                              checked_hash=user["password_hash"], from_session=signed_in.token_hash):
             # An admin reset the password, or this session ended, while the new one was being prepared.
             raise AuthError(401, "signed_out", "Your session ended meanwhile. Sign in again.")
-        return token
+        return Issued(token, session["expires_at"])
 
     # --- people (snild-admin) ----------------------------------------------------------------------------------
 

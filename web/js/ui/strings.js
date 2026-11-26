@@ -57,12 +57,18 @@ export const text = Object.freeze({
   // Account
   account: "Account",
   people: "People",
+  settings: "Settings",
   changePassword: "Change password",
   currentPassword: "Current password",
   newPassword: "New password",
   passwordChanged: "Password changed. You were signed out on every other device.",
   save: "Save",
   signOut: "Sign out",
+
+  // Settings (admins)
+  settingsTitle: "Settings",
+  chatsKept: "Chats are kept until people delete them.",
+  noLimit: "No limit",
 
   // People (admins)
   peopleTitle: "People",

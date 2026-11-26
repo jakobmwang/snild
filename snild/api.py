@@ -146,7 +146,7 @@ UserDep = Annotated[SignedIn, Depends(signed_in)]
 
 async def signed_in_admin(user: UserDep) -> SignedIn:
     if user.user["role"] != "admin":
-        raise ApiError(403, "admin_required", "Only admins can manage people.")
+        raise ApiError(403, "admin_required", "Only admins can do that.")
     return user
 
 
@@ -327,7 +327,7 @@ async def change_settings(request: Request, _: AdminDep, body: dict[str, Any]) -
     try:
         changes = validate(body)
     except SettingsError as e:
-        raise ApiError(422, "invalid_setting", str(e)) from None
+        raise ApiError(422, "invalid_setting", "Some settings are not valid.", fields=e.fields) from None
     accounts = _accounts(request)
     await accounts.save_settings(changes)
     return {"settings": accounts.settings.describe()}

@@ -4,8 +4,8 @@
   "tools": [
     {
       "name": "run_js",
-      "enabled": false,
-      "description": "Run JavaScript (top-level await allowed) in a sandbox with no network. Available: fs.readFile(name) and fs.readdir() for this chat's files (PDF and Word arrive as text), sql(query) for DuckDB over CSV, Excel and Parquet files, d3, and a document object so ordinary d3 code produces SVG or HTML. You get back the value of a top-level return statement and anything written with console.log.",
+      "enabled": true,
+      "description": "Run JavaScript (top-level await allowed) in the user's browser, in a locked sandbox with no network. Available: fs.readdir() lists the files you can use (for now two demo files with the same 2,000 sales: demo/sales.csv and demo/sales.xlsx); fs.readFile(name) gives a CSV or other text file as a string and an Excel file as a Uint8Array (files up to 1 MB); sql(query) runs DuckDB SQL over those files, e.g. SELECT * FROM read_csv('demo/sales.csv') or read_xlsx('demo/sales.xlsx'), and resolves to an array of row objects (dates as ISO text); d3 is loaded, and document is a small virtual page, so ordinary d3 code builds SVG: return svg.node() and the user sees the chart. You get back JSON with the returned value, console.log output and any error. Each call has 30 seconds and starts fresh: nothing carries over between calls. The whole result is cut to 50,000 characters, so print summaries, not whole tables.",
       "requires": [],
       "input_schema": {
         "type": "object",

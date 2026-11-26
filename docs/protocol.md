@@ -14,7 +14,8 @@ Everything lives under `/api/v1/`. Requests and answers are JSON, except turns, 
   which defeats DNS rebinding.
 - **Same origin only.** Every `POST`, `PATCH` and `DELETE` must carry an `Origin` header equal to snild's own
   origin: `public_url`, or else the address the browser used. No API request may come from another site: a
-  `Sec-Fetch-Site` header, when sent, must be `same-origin` (or `none`). Anything else gets
+  `Sec-Fetch-Site` header, when sent, must be `same-origin` (or `none`, except on `POST`, `PATCH` and
+  `DELETE`). Anything else gets
   `403 cross_site_request`.
 - **Errors** always have this shape, with a stable `code` the browser can act on:
 
@@ -42,13 +43,13 @@ Everything lives under `/api/v1/`. Requests and answers are JSON, except turns, 
   (at most 400 days).
 - A username is 2 to 32 characters `a-z 0-9 . _ -` (any case; stored in lower case). A password is 15 to 256
   characters after Unicode NFC normalisation; any characters, spaces too.
-- Sign-in and setup are limited per client address and per username: `429 too_many_attempts` with
-  `retry_after` (seconds). Failed sign-ins count (10 per name, 30 per address, per 15 minutes); all sign-ins,
-  right or wrong, have a higher ceiling (60 and 120).
+- Sign-in and setup are limited: `429 too_many_attempts` with `retry_after` (seconds). Setup allows 10
+  attempts per client address per 15 minutes. Failed sign-ins count 10 per address and username, and 30 per
+  address, per 15 minutes; all sign-ins, right or wrong, have a higher ceiling (60 and 120).
 - A request body is at most 64 KiB, except a turn's (16 MiB): nothing larger is read before sign-in.
 - The page sends `X-Snild-User: <user id>` with every request once it knows who it was opened for. Tabs share
-  one cookie, so if someone else has since signed in on another tab, the request is refused with
-  `401 account_changed` instead of acting as them.
+  one cookie, so if someone else has since signed in on another tab, a request that needs a session (and sign-out) is
+  refused with `401 account_changed` instead of acting as them.
 - An open stream is checked against its session every 5 seconds. When the session ends, the stream just
   stops (without a final event); the run itself goes on.
 
@@ -107,13 +108,14 @@ The chat's `revision` is the number of saved items. `awaiting` says what comes n
 | `awaiting` | Meaning | The next turn posts |
 |:--|:--|:--|
 | `user` | The model has answered. | one `user` item |
-| `tools` | The last reply asked for tools. | one `tool_result` per pending call, all in one turn |
+| `tools` | The last reply asked for tools. | one `tool_result` per pending call, all in one turn; or a new `user` item instead (see below) |
 | `model` | The model owes a reply (after an error, or after tool results the server answered itself). | no items, `[]`, to retry; or a new `user` item instead |
 
 ## A turn
 
-```json
+```http
 POST /api/v1/chats/{chat}/turns
+
 {"model_id": "…", "expected_revision": 4, "idempotency_key": "a fresh random string",
  "items": [{"type": "tool_result", "call_id": "…", "content": "…", "is_error": false}]}
 ```
@@ -126,11 +128,14 @@ The server checks, in this order:
 3. **Revision.** `expected_revision` must equal the chat's revision, or `409 revision_conflict` (with
    `current_revision`).
 4. **One run at a time.** `409 run_active` (with `run_id`) while another reply is being written.
-5. **Fit.** The items must be what the chat is `awaiting`: `409 tools_pending`, `tool_results_mismatch`,
-   `no_tools_pending`, `nothing_to_continue`.
+5. **Fit.** The items must be what the chat is `awaiting`: `409 tool_results_mismatch`, `no_tools_pending`,
+   `nothing_to_continue`.
 
-The posted items are then saved, and the reply streams back. A run belongs to the server, not to the
-request: closing the tab does not stop it, and another tab can follow it. Only `cancel` stops it.
+The posted items are then saved, and the reply streams back. A `user` item while tool calls wait for results
+(a new message instead of their results) first closes those calls: each gets an error `tool_result` saying it
+did not run, saved together with the message, so the transcript stays whole. The `run` event's
+`committed_ids` then list those results first and the message last. A run belongs to the server, not to the
+request: closing the tab does not stop it, and another tab can follow it; `cancel` stops it.
 
 ## Stream events
 
@@ -144,7 +149,7 @@ Every event has `seq` (its position in the run, from 0) and `type`. A stream end
 | `thinking_delta` | `text` | Part of the model's reasoning, when the provider shows it. |
 | `tool_call_start` | `call_id, name` | For display only. |
 | `tool_call_delta` | `call_id, text` | For display only: a fragment of the arguments, perhaps not valid JSON yet. |
-| `tool_call` | `call_id, name, input` | Saved and checked. **The only event that may make the browser run a tool.** |
+| `tool_call` | `call_id, name, input` | Saved and checked. **The only event that may make the browser run a tool** (besides Continue, which runs the pending calls of a freshly read chat). |
 | `title_updated` | `title` | The chat got its model-written title while the reply was streaming. |
 | `usage` | `input_tokens, output_tokens` | |
 | `done` | `finish_reason, revision, committed_ids, awaiting` | `finish_reason`: `end`, `tool_calls`, `max_tokens`, `refusal`, `cancelled`. |
@@ -158,7 +163,20 @@ names a tool that is not on offer, the server saves an error `tool_result` for i
 
 `snild/tools.json` lists the model's tools. The server offers only those marked `enabled`, the ones this
 version of the browser can run, and leaves the tool guidance out of the system prompt when there are none. In
-this version none are enabled; `run_js`, `render_html` and `fetch_url` are planned.
+this version `run_js` is enabled; `render_html` and `fetch_url` are planned.
+
+The browser runs a step's tool calls one after another and posts all their results in one turn. A `run_js`
+result is a JSON object in the `content` text, always within the 50,000-character limit:
+
+    {"run_js": 1, "status": "ok", "seconds": 0.42, "error": "...", "note": "...",
+     "value": "...", "console": "...", "svg": "<svg ...>"}
+
+`status` is `ok` or `error`; `value` is what the code returned, as text (JSON for data); `svg` is a returned SVG element, kept whole or left
+out (a `note` then says so); a text too long to fit is cut, and `note` says which. `is_error` is true when
+`status` is `error`.
+
+Stop while tools run ends the running call at once and posts nothing: the chat keeps waiting for those results
+(`awaiting: "tools"`). Continue runs all of the step's calls again; a new message instead closes them (above).
 
 When a run is cancelled, whatever text was already written is kept as an assistant item with
 `status: "cancelled"`; tool calls from a cancelled step are dropped.

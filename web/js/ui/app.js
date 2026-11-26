@@ -11,14 +11,16 @@ import { Router, takeSetupCode } from "../runtime/router.js";
 import { TabSync } from "../runtime/sync.js";
 import { browserTools } from "../runtime/tools.js";
 import { passwordDialog, setupView, signInView } from "./auth.js";
+import { AdminView } from "./admin.js";
 import { ComposerView } from "./composer.js";
 import { askDialog } from "./dialogs.js";
 import { el, icon } from "./dom.js";
-import { peopleDialog } from "./people.js";
+import { Menus } from "./menu.js";
 import { RailView } from "./rail.js";
-import { openSettings } from "./settings.js";
 import { startFailedView } from "./status.js";
 import { text } from "./strings.js";
+import { chooseTheme, savedTheme } from "./theme.js";
+import { toast } from "./toast.js";
 import { TranscriptView } from "./transcript.js";
 
 /**
@@ -142,11 +144,12 @@ async function openApp(root, api, announce = false) {
   api.userId = info.user.id; // from now on every request says whose page this is
   const app = new App(root, api, info);
   if (announce) app.sync.post({ type: "signed_in" });
-  await app.open(app.router.chatId);
+  await app.show(app.router.route);
 }
 
 /** @param {import("../core/chat.js").Outcome} outcome */
 function outcomeText(outcome) {
+  if (outcome.code === "tools") return outcome.kind === "stopped" ? text.toolsStopped : text.toolsWaiting;
   return outcome.kind === "interrupted" ? text.interrupted : outcome.kind === "stopped" ? text.stoppedEarly
     : outcome.kind === "unfinished" ? text.unfinished : text.failed(outcome.code);
 }
@@ -173,21 +176,27 @@ class App {
     this.chatListRequests = 0;
     this.listeners = new AbortController(); // ends this app's listeners on the document when it closes
     this.sync = new TabSync(this.user.id, (message) => this.#heard(message));
-    this.router = new Router((chatId) => void this.open(chatId));
+    this.router = new Router((route) => void this.show(route));
+    this.menus = new Menus(this.listeners.signal, () => this.rail.menuClosed());
+    /** The chat that was open before the admin area, to go back to. @type {string | null} */
+    this.lastChatId = null;
+    /** @type {AdminView | null} */
+    this.admin = null;
 
     this.rail = new RailView({
       user: this.user,
       onOpen: (chatId) => {
         this.router.go(chatId);
-        void this.open(chatId);
+        void this.show({ kind: "chat", chatId });
       },
       onRename: (chatId, title) => this.#rename(chatId, title),
       onDelete: (chat) => this.#confirmDelete(chat),
       onChangePassword: () => this.#changePassword(),
       onSignOut: () => void this.#signOut(),
-      onPeople: () => this.#people(),
-      onSettings: () => this.#settings(),
-      signal: this.listeners.signal,
+      onAdmin: () => this.#goAdmin("people"),
+      theme: savedTheme,
+      onTheme: chooseTheme,
+      menus: this.menus,
     });
     this.scroller = el("div", { class: "scroller" });
     this.transcript = new TranscriptView(this.scroller);
@@ -201,41 +210,55 @@ class App {
       if (this.conversation) this.conversation.modelId = this.modelId;
     });
     this.notices = el("div", { class: "notices" });
+    // The versioned assets this file was served from: the tools' frames and demo files live there too.
+    this.tools = browserTools({ assets: new URL("../..", import.meta.url).href.replace(/\/$/, ""),
+      resultChars: info.limits.tool_result_chars });
     this.composer = new ComposerView({
       maxChars: info.limits.message_chars,
+      signal: this.listeners.signal,
       onSend: (message) => this.#send(message),
       onStop: () => void this.conversation?.stop(),
       onDraft: (draft) => saveDraft(this.user.id, this.conversation?.chatId ?? null, draft),
     });
     this.live = el("div", { class: "visually-hidden", role: "status", "aria-live": "polite" });
-    const railToggle = el("button", { type: "button", class: "rail-toggle", "aria-label": text.openMenu, "aria-controls": "rail",
-      "aria-expanded": "false" }, icon("menu"));
-    railToggle.addEventListener("click", () => this.#toggleRail());
-    this.railToggle = railToggle;
+    // One in the chat's header and one in the admin area's, so the chat list can always be brought back.
+    this.railToggles = [0, 1].map(() => {
+      const toggle = el("button", { type: "button", class: "rail-toggle", "aria-label": text.toggleRail,
+        "aria-controls": "rail", "aria-expanded": "true" }, icon("sidebar"));
+      toggle.addEventListener("click", () => this.#toggleRail());
+      return toggle;
+    });
     const backdrop = el("div", { class: "rail-backdrop" }); // narrow screens: a tap beside the rail closes it
     backdrop.addEventListener("click", () => this.#toggleRail(false));
-    this.shell = el("div", { class: "shell" },
+    this.chatView = el("div", { class: "chat-view" },
+      el("header", { class: "chat-header" }, this.railToggles[0], this.title, info.models.length > 1 ? this.models : null),
+      el("div", { class: "scroll-area" }, this.scroller, this.transcript.jump),
+      el("div", { class: "dock" }, this.notices, this.composer.element));
+    this.adminHost = el("div", { class: "admin-view" });
+    this.adminHost.hidden = true;
+    this.shell = el("div", { class: `shell${loadRailCollapsed() ? " rail-collapsed" : ""}` },
       el("a", { href: "#message", class: "skip-link" }, text.messageLabel),
       el("aside", { class: "rail", id: "rail", "aria-label": text.chats }, this.rail.element),
       backdrop,
       el("main", { class: "main" },
         info.emulator ? el("p", { class: "banner", role: "note" }, text.emulatorBanner) : null,
-        el("header", { class: "chat-header" }, railToggle, this.title, info.models.length > 1 ? this.models : null),
-        this.scroller,
-        el("div", { class: "dock" }, this.notices, this.composer.element)),
+        this.chatView, this.adminHost),
       this.live);
+    this.#drawRailToggle();
+    // Narrow and wide screens show the list differently: keep what can take focus right when the width changes.
+    window.matchMedia(NARROW).addEventListener("change", () => this.#drawRailToggle(), { signal: this.listeners.signal });
     root.className = "app";
     root.replaceChildren(this.shell);
     // Escape closes the innermost thing first: a dialog (the browser does that), a menu, the rail on a
     // narrow screen; and otherwise stops the reply being written, wherever focus is.
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape" || event.defaultPrevented || document.querySelector("dialog[open]")) return;
-      if (this.rail.closeOpenMenu()) {
+      if (this.menus.closeOpen()) {
         event.preventDefault();
       } else if (this.shell.classList.contains("rail-open")) {
         this.#toggleRail(false);
         event.preventDefault();
-      } else if (this.conversation?.busy) {
+      } else if (this.adminHost.hidden && this.conversation?.busy) {
         void this.conversation.stop();
         event.preventDefault();
       }
@@ -243,10 +266,66 @@ class App {
     void this.#loadChats();
   }
 
+  /**
+   * Show what an address names: a chat, or an admin page (members are sent to a new chat with a notice).
+   * @param {import("../runtime/router.js").Route} route
+   */
+  async show(route) {
+    if (this.closed) return;
+    if (route.kind === "admin") {
+      if (this.user.role !== "admin") {
+        this.router.go(null, { replace: true });
+        this.appNotice = text.adminOnly;
+        await this.show({ kind: "chat", chatId: null });
+        return;
+      }
+      if (window.location.pathname !== `/admin/${route.page}`) this.router.goTo(route, { replace: true }); // /admin
+      this.#showAdmin(route.page);
+      return;
+    }
+    const wasAdmin = !this.adminHost.hidden;
+    this.adminHost.hidden = true;
+    this.chatView.hidden = false;
+    if (this.admin) this.admin.page = null; // next time: a fresh load
+    if (this.conversation && this.conversation.chatId === route.chatId) {
+      this.#draw("all"); // back from the admin area: the chat (and its draft) are as they were
+      if (wasAdmin) this.composer.focus();
+      return;
+    }
+    await this.open(route.chatId);
+  }
+
+  /** @param {"people" | "settings"} page */
+  #goAdmin(page) {
+    this.router.goTo({ kind: "admin", page });
+    this.#showAdmin(page);
+  }
+
+  /** @param {"people" | "settings"} page */
+  #showAdmin(page) {
+    this.#toggleRail(false, { narrowOnly: true });
+    if (this.adminHost.hidden) this.lastChatId = this.conversation?.chatId ?? null;
+    if (!this.admin) {
+      this.admin = new AdminView({
+        api: this.api, me: this.user.id, menus: this.menus, railToggle: this.railToggles[1],
+        onBack: () => {
+          this.router.go(this.lastChatId);
+          void this.show({ kind: "chat", chatId: this.lastChatId });
+        },
+        onPage: (next) => this.#goAdmin(next),
+        onSignedOut: () => void this.#signedOut(),
+      });
+      this.adminHost.replaceChildren(this.admin.element);
+    }
+    this.chatView.hidden = true;
+    this.adminHost.hidden = false;
+    this.admin.show(page);
+  }
+
   /** @param {string | null} chatId */
   async open(chatId) {
     if (this.closed) return;
-    this.#toggleRail(false);
+    this.#toggleRail(false, { narrowOnly: true });
     this.conversation?.dispose();
     const conversation = new Conversation({
       api: this.api,
@@ -254,7 +333,7 @@ class App {
       chatId,
       modelId: this.modelId,
       sync: this.sync,
-      tools: browserTools,
+      tools: this.tools.tools,
       onChange: (change) => {
         if (this.conversation === conversation) this.#draw(change);
       },
@@ -264,7 +343,9 @@ class App {
         saveDraft(this.user.id, id, loadDraft(this.user.id, null));
         saveDraft(this.user.id, null, "");
         saveUnsure(this.user.id, id, conversation.unsure);
-        if (this.conversation === conversation) this.router.go(id, { replace: true });
+        if (this.conversation !== conversation) return;
+        if (this.adminHost.hidden) this.router.go(id, { replace: true });
+        else this.lastChatId = id; // the admin area keeps its address; Back to chat goes to the new chat
       },
       onChatsChanged: () => void this.#loadChats(),
     });
@@ -289,24 +370,60 @@ class App {
 
   /** @param {"all" | "live"} change */
   #draw(change) {
-    const conversation = /** @type {Conversation} */ (this.conversation);
+    const conversation = this.conversation;
+    const inAdmin = !this.adminHost.hidden;
+    if (!conversation) { // the admin area opened directly: only the chat list to keep up to date
+      if (change !== "live") this.rail.update(this.chats, null);
+      return;
+    }
     const state = conversation.state;
     this.transcript.update(state, change);
     if (change === "live") return;
 
     const title = state?.chat.title || text.untitled;
     this.title.textContent = title;
-    document.title = state ? `${title} – ${text.appName}` : text.appName;
+    if (!inAdmin) document.title = state ? `${title} – ${text.appName}` : text.appName;
     const noModel = this.info.models.length === 0;
+    const wasEmpty = !this.empty.hidden;
     this.empty.hidden = Boolean(state?.messages.length || state?.run || conversation.chatId);
-    this.empty.replaceChildren(noModel
-      ? el("div", { class: "notice" }, el("h2", {}, text.noModelTitle), el("p", {}, text.noModelBody))
-      : el("h2", { class: "empty-title" }, text.emptyTitle));
+    if (this.empty.hidden !== wasEmpty || !this.empty.childElementCount) this.empty.replaceChildren(...this.#emptyView(noModel));
     const unloaded = Boolean(conversation.chatId && !state); // loading, reconnecting, or gone
     this.composer.update({ running: conversation.busy, stopping: conversation.stopping, disabled: noModel || unloaded });
-    this.rail.update(this.chats, conversation.chatId);
+    this.rail.update(this.chats, inAdmin ? null : conversation.chatId);
     this.#drawNotices(conversation);
     this.#announce(conversation);
+  }
+
+  /**
+   * Something other than the chat went wrong: said where the person is looking (the chat's notices, or a toast
+   * over the admin area).
+   * @param {string} message
+   */
+  #problem(message) {
+    if (this.adminHost.hidden) {
+      this.appNotice = message;
+      this.#draw("all");
+    } else {
+      toast(message, { error: true });
+    }
+  }
+
+  /** @param {boolean} noModel */
+  #emptyView(noModel) {
+    if (noModel) return [el("div", { class: "notice" }, el("h2", {}, text.noModelTitle), el("p", {}, text.noModelBody))];
+    const starters = text.starters.map(({ label, prompt }) => {
+      const button = el("button", { type: "button", class: "starter" }, el("span", { class: "starter-label" }, label),
+        el("span", { class: "starter-prompt" }, prompt));
+      button.addEventListener("click", () => {
+        this.composer.setText(prompt);
+        saveDraft(this.user.id, this.conversation?.chatId ?? null, prompt);
+        this.composer.focus();
+      });
+      return button;
+    });
+    return [el("h2", { class: "empty-title" }, text.emptyTitle),
+      this.info.emulator ? el("p", { class: "empty-lead" }, text.emptyLead) : null,
+      this.info.emulator ? el("div", { class: "starters" }, ...starters) : null].filter((node) => node !== null);
   }
 
   /** @param {Conversation} conversation */
@@ -408,8 +525,7 @@ class App {
       if (this.closed) return false;
       if (error instanceof ApiError && error.status === 401) void this.#signedOut();
       else {
-        this.appNotice = text.renameFailed;
-        this.#draw("all");
+        this.#problem(text.renameFailed);
       }
       return false;
     }
@@ -458,31 +574,13 @@ class App {
     }
     saveDraft(this.user.id, chatId, "");
     saveUnsure(this.user.id, chatId, null);
+    if (this.lastChatId === chatId) this.lastChatId = null; // Back to chat must not lead to a deleted chat
     if (this.conversation?.chatId === chatId) {
-      this.router.go(null);
+      if (this.adminHost.hidden) this.router.go(null); // the admin area keeps its own address
       await this.open(null);
     }
     this.sync.post({ type: "chats_changed" });
     await this.#loadChats();
-  }
-
-  #people() {
-    const dialog = peopleDialog({ api: this.api, me: this.user.id, returnTo: this.rail.accountButton,
-      onSignedOut: () => void this.#signedOut() });
-    this.shell.append(dialog);
-    dialog.showModal();
-  }
-
-  #settings() {
-    openSettings(this.shell, { api: this.api, returnTo: this.rail.accountButton,
-      onSignedOut: () => void this.#signedOut() }).catch((error) => {
-      if (error instanceof ApiError && error.status === 401) {
-        void this.#signedOut();
-        return;
-      }
-      this.appNotice = text.failed("");
-      this.#draw("all");
-    });
   }
 
   #changePassword() {
@@ -503,8 +601,7 @@ class App {
         return;
       }
       if (!(error instanceof ApiError && error.status === 401)) {
-        this.appNotice = text.signOutFailed;
-        this.#draw("all");
+        this.#problem(text.signOutFailed);
         return;
       }
     }
@@ -545,6 +642,7 @@ class App {
     this.shell.inert = true; // still on screen for a moment, but nothing on it can be used any more
     this.listeners.abort();
     this.conversation?.dispose();
+    this.tools.dispose();
     this.sync.close();
     this.router.dispose();
   }
@@ -562,10 +660,55 @@ class App {
     else this.conversation?.heard(message);
   }
 
-  /** @param {boolean} [open] */
-  #toggleRail(open = !this.shell.classList.contains("rail-open")) {
-    this.shell.classList.toggle("rail-open", open);
-    this.railToggle.setAttribute("aria-expanded", String(open));
-    this.railToggle.setAttribute("aria-label", open ? text.closeMenu : text.openMenu);
+  /**
+   * Show or hide the chat list: a drawer over the page on a narrow screen, a column that folds away (and stays
+   * folded next time) on a wide one.
+   * @param {boolean} [open]
+   * @param {{narrowOnly?: boolean}} [options] narrowOnly: only close the drawer, never fold the column
+   */
+  #toggleRail(open, { narrowOnly = false } = {}) {
+    if (window.matchMedia(NARROW).matches) {
+      const was = this.shell.classList.contains("rail-open");
+      const now = open ?? !was;
+      this.shell.classList.toggle("rail-open", now);
+      if (was && !now && this.shell.querySelector(".rail")?.contains(document.activeElement)) {
+        (this.adminHost.hidden ? this.railToggles[0] : this.railToggles[1]).focus();
+      }
+    } else if (!narrowOnly) {
+      const collapsed = !(open ?? this.shell.classList.contains("rail-collapsed"));
+      this.shell.classList.toggle("rail-collapsed", collapsed);
+      saveRailCollapsed(collapsed);
+    }
+    this.#drawRailToggle();
+  }
+
+  #drawRailToggle() {
+    const shown = window.matchMedia(NARROW).matches ? this.shell.classList.contains("rail-open")
+      : !this.shell.classList.contains("rail-collapsed");
+    for (const toggle of this.railToggles) toggle.setAttribute("aria-expanded", String(shown));
+    const rail = /** @type {HTMLElement | null} */ (this.shell.querySelector(".rail"));
+    if (rail) rail.inert = !shown; // folded away or a closed drawer: nothing in it can take focus
+  }
+}
+
+const NARROW = "(max-width: 760px)";
+const RAIL_KEY = "snild.rail";
+
+/** Whether the chat list was folded away on a wide screen (this browser only). */
+function loadRailCollapsed() {
+  try {
+    return localStorage.getItem(RAIL_KEY) === "collapsed";
+  } catch {
+    return false;
+  }
+}
+
+/** @param {boolean} collapsed */
+function saveRailCollapsed(collapsed) {
+  try {
+    if (collapsed) localStorage.setItem(RAIL_KEY, "collapsed");
+    else localStorage.removeItem(RAIL_KEY);
+  } catch {
+    // remembered for this page only
   }
 }

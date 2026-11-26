@@ -1,0 +1,2001 @@
+date,region,product,units,unit_price,amount
+2025-01-01,North,Headphones,6,75,450
+2025-01-01,South,Backpack,26,25,650
+2025-01-01,West,Headphones,37,75,2775
+2025-01-01,West,Notebook,17,12,204
+2025-01-02,East,Notebook,35,12,420
+2025-01-02,North,Office chair,12,120,1440
+2025-01-02,South,Backpack,10,25,250
+2025-01-03,East,Desk lamp,1,40,40
+2025-01-03,East,Desk lamp,22,40,880
+2025-01-03,North,Backpack,5,25,125
+2025-01-04,East,Backpack,29,25,725
+2025-01-04,East,Backpack,4,25,100
+2025-01-04,North,Desk lamp,10,40,400
+2025-01-04,North,Headphones,17,75,1275
+2025-01-04,North,Office chair,10,120,1200
+2025-01-04,South,Backpack,11,25,275
+2025-01-04,West,Backpack,20,25,500
+2025-01-05,East,Desk lamp,9,40,360
+2025-01-05,North,Desk lamp,28,40,1120
+2025-01-05,North,Office chair,2,120,240
+2025-01-05,South,Backpack,4,25,100
+2025-01-05,West,Headphones,29,75,2175
+2025-01-05,West,Headphones,7,75,525
+2025-01-06,East,Backpack,18,25,450
+2025-01-06,West,Office chair,36,120,4320
+2025-01-06,West,Office chair,28,120,3360
+2025-01-07,East,Desk lamp,37,40,1480
+2025-01-07,East,Headphones,7,75,525
+2025-01-07,East,Notebook,33,12,396
+2025-01-07,East,Office chair,5,120,600
+2025-01-07,North,Backpack,37,25,925
+2025-01-07,North,Headphones,26,75,1950
+2025-01-07,South,Desk lamp,14,40,560
+2025-01-07,South,Desk lamp,9,40,360
+2025-01-07,South,Headphones,23,75,1725
+2025-01-07,South,Office chair,11,120,1320
+2025-01-08,East,Backpack,21,25,525
+2025-01-08,East,Headphones,11,75,825
+2025-01-08,East,Headphones,13,75,975
+2025-01-08,North,Headphones,32,75,2400
+2025-01-08,South,Headphones,26,75,1950
+2025-01-09,East,Backpack,5,25,125
+2025-01-09,North,Headphones,21,75,1575
+2025-01-09,North,Office chair,1,120,120
+2025-01-09,South,Backpack,12,25,300
+2025-01-09,South,Office chair,5,120,600
+2025-01-10,East,Backpack,19,25,475
+2025-01-10,South,Notebook,40,12,480
+2025-01-10,South,Notebook,39,12,468
+2025-01-10,West,Headphones,34,75,2550
+2025-01-11,East,Headphones,11,75,825
+2025-01-11,North,Notebook,25,12,300
+2025-01-11,South,Headphones,21,75,1575
+2025-01-11,West,Desk lamp,4,40,160
+2025-01-11,West,Desk lamp,12,40,480
+2025-01-12,East,Office chair,23,120,2760
+2025-01-12,West,Notebook,31,12,372
+2025-01-13,South,Office chair,31,120,3720
+2025-01-13,West,Backpack,20,25,500
+2025-01-14,East,Backpack,21,25,525
+2025-01-14,East,Backpack,23,25,575
+2025-01-14,East,Notebook,38,12,456
+2025-01-14,East,Office chair,11,120,1320
+2025-01-14,North,Backpack,34,25,850
+2025-01-14,South,Notebook,22,12,264
+2025-01-14,West,Desk lamp,39,40,1560
+2025-01-14,West,Notebook,13,12,156
+2025-01-14,West,Notebook,8,12,96
+2025-01-15,East,Notebook,26,12,312
+2025-01-15,South,Desk lamp,7,40,280
+2025-01-15,South,Desk lamp,19,40,760
+2025-01-15,South,Headphones,30,75,2250
+2025-01-15,West,Backpack,15,25,375
+2025-01-15,West,Desk lamp,7,40,280
+2025-01-15,West,Headphones,8,75,600
+2025-01-15,West,Office chair,20,120,2400
+2025-01-16,East,Desk lamp,26,40,1040
+2025-01-16,East,Notebook,12,12,144
+2025-01-16,North,Backpack,28,25,700
+2025-01-16,North,Desk lamp,1,40,40
+2025-01-16,North,Headphones,24,75,1800
+2025-01-16,South,Desk lamp,39,40,1560
+2025-01-16,South,Desk lamp,32,40,1280
+2025-01-16,South,Notebook,7,12,84
+2025-01-17,North,Backpack,10,25,250
+2025-01-17,North,Desk lamp,13,40,520
+2025-01-17,North,Headphones,28,75,2100
+2025-01-17,South,Desk lamp,26,40,1040
+2025-01-18,East,Backpack,28,25,700
+2025-01-18,South,Notebook,29,12,348
+2025-01-19,East,Backpack,18,25,450
+2025-01-19,East,Office chair,7,120,840
+2025-01-19,North,Headphones,27,75,2025
+2025-01-19,North,Notebook,15,12,180
+2025-01-19,North,Office chair,19,120,2280
+2025-01-19,South,Headphones,34,75,2550
+2025-01-19,South,Office chair,7,120,840
+2025-01-19,West,Backpack,17,25,425
+2025-01-19,West,Headphones,4,75,300
+2025-01-20,East,Office chair,19,120,2280
+2025-01-20,North,Desk lamp,14,40,560
+2025-01-20,North,Headphones,12,75,900
+2025-01-20,South,Desk lamp,25,40,1000
+2025-01-20,South,Desk lamp,34,40,1360
+2025-01-20,South,Headphones,34,75,2550
+2025-01-20,South,Headphones,25,75,1875
+2025-01-20,West,Backpack,5,25,125
+2025-01-21,East,Backpack,22,25,550
+2025-01-21,North,Backpack,5,25,125
+2025-01-21,West,Office chair,25,120,3000
+2025-01-22,East,Notebook,14,12,168
+2025-01-22,North,Desk lamp,26,40,1040
+2025-01-22,North,Office chair,32,120,3840
+2025-01-22,South,Headphones,39,75,2925
+2025-01-22,South,Notebook,36,12,432
+2025-01-23,East,Backpack,8,25,200
+2025-01-23,East,Desk lamp,28,40,1120
+2025-01-23,North,Notebook,23,12,276
+2025-01-23,South,Backpack,23,25,575
+2025-01-23,South,Backpack,12,25,300
+2025-01-23,South,Desk lamp,24,40,960
+2025-01-23,South,Desk lamp,11,40,440
+2025-01-23,South,Notebook,24,12,288
+2025-01-23,West,Backpack,37,25,925
+2025-01-24,North,Office chair,24,120,2880
+2025-01-24,West,Notebook,39,12,468
+2025-01-25,East,Headphones,17,75,1275
+2025-01-25,West,Backpack,17,25,425
+2025-01-25,West,Notebook,26,12,312
+2025-01-26,North,Desk lamp,32,40,1280
+2025-01-26,North,Headphones,32,75,2400
+2025-01-26,North,Office chair,8,120,960
+2025-01-26,West,Notebook,31,12,372
+2025-01-26,West,Notebook,23,12,276
+2025-01-27,East,Notebook,30,12,360
+2025-01-27,North,Headphones,23,75,1725
+2025-01-27,South,Headphones,25,75,1875
+2025-01-27,South,Office chair,34,120,4080
+2025-01-27,West,Office chair,30,120,3600
+2025-01-27,West,Office chair,7,120,840
+2025-01-28,North,Notebook,10,12,120
+2025-01-28,South,Backpack,19,25,475
+2025-01-28,South,Office chair,12,120,1440
+2025-01-28,South,Office chair,9,120,1080
+2025-01-28,West,Headphones,17,75,1275
+2025-01-28,West,Headphones,6,75,450
+2025-01-29,East,Backpack,40,25,1000
+2025-01-29,East,Headphones,12,75,900
+2025-01-29,East,Office chair,6,120,720
+2025-01-29,North,Notebook,34,12,408
+2025-01-29,South,Backpack,10,25,250
+2025-01-29,West,Headphones,9,75,675
+2025-01-30,East,Notebook,5,12,60
+2025-01-31,West,Desk lamp,20,40,800
+2025-01-31,West,Desk lamp,28,40,1120
+2025-01-31,West,Notebook,16,12,192
+2025-02-01,East,Backpack,26,25,650
+2025-02-01,East,Desk lamp,30,40,1200
+2025-02-01,East,Headphones,27,75,2025
+2025-02-01,South,Desk lamp,31,40,1240
+2025-02-01,South,Office chair,28,120,3360
+2025-02-01,West,Headphones,8,75,600
+2025-02-02,East,Backpack,17,25,425
+2025-02-02,East,Desk lamp,34,40,1360
+2025-02-02,East,Office chair,36,120,4320
+2025-02-02,North,Backpack,33,25,825
+2025-02-02,North,Headphones,4,75,300
+2025-02-02,North,Notebook,14,12,168
+2025-02-02,West,Office chair,10,120,1200
+2025-02-03,North,Backpack,12,25,300
+2025-02-03,South,Desk lamp,2,40,80
+2025-02-03,South,Notebook,39,12,468
+2025-02-03,West,Notebook,1,12,12
+2025-02-04,North,Desk lamp,4,40,160
+2025-02-04,South,Headphones,33,75,2475
+2025-02-04,South,Notebook,24,12,288
+2025-02-04,West,Headphones,29,75,2175
+2025-02-05,East,Backpack,24,25,600
+2025-02-05,East,Notebook,3,12,36
+2025-02-06,East,Desk lamp,32,40,1280
+2025-02-07,East,Headphones,1,75,75
+2025-02-07,North,Desk lamp,22,40,880
+2025-02-07,North,Notebook,3,12,36
+2025-02-07,North,Notebook,10,12,120
+2025-02-07,South,Notebook,15,12,180
+2025-02-07,South,Office chair,25,120,3000
+2025-02-07,West,Desk lamp,21,40,840
+2025-02-08,East,Backpack,35,25,875
+2025-02-08,East,Desk lamp,15,40,600
+2025-02-08,East,Headphones,23,75,1725
+2025-02-08,North,Desk lamp,35,40,1400
+2025-02-09,East,Backpack,30,25,750
+2025-02-09,East,Desk lamp,19,40,760
+2025-02-09,East,Notebook,24,12,288
+2025-02-09,East,Office chair,3,120,360
+2025-02-09,North,Desk lamp,36,40,1440
+2025-02-09,North,Notebook,38,12,456
+2025-02-10,East,Headphones,18,75,1350
+2025-02-10,East,Notebook,40,12,480
+2025-02-10,East,Notebook,40,12,480
+2025-02-10,East,Office chair,1,120,120
+2025-02-10,East,Office chair,16,120,1920
+2025-02-10,West,Headphones,17,75,1275
+2025-02-11,East,Notebook,33,12,396
+2025-02-11,South,Backpack,30,25,750
+2025-02-11,South,Backpack,21,25,525
+2025-02-11,South,Office chair,16,120,1920
+2025-02-11,West,Office chair,14,120,1680
+2025-02-12,East,Desk lamp,32,40,1280
+2025-02-12,North,Backpack,26,25,650
+2025-02-12,North,Desk lamp,18,40,720
+2025-02-12,North,Notebook,21,12,252
+2025-02-12,North,Office chair,14,120,1680
+2025-02-12,South,Backpack,24,25,600
+2025-02-12,South,Office chair,37,120,4440
+2025-02-12,West,Headphones,35,75,2625
+2025-02-13,North,Notebook,34,12,408
+2025-02-13,South,Backpack,12,25,300
+2025-02-13,South,Headphones,5,75,375
+2025-02-13,South,Office chair,33,120,3960
+2025-02-13,West,Backpack,20,25,500
+2025-02-13,West,Headphones,29,75,2175
+2025-02-13,West,Notebook,11,12,132
+2025-02-14,North,Headphones,37,75,2775
+2025-02-14,North,Headphones,25,75,1875
+2025-02-14,North,Office chair,4,120,480
+2025-02-14,West,Headphones,34,75,2550
+2025-02-14,West,Notebook,37,12,444
+2025-02-14,West,Office chair,7,120,840
+2025-02-15,East,Backpack,40,25,1000
+2025-02-15,East,Notebook,19,12,228
+2025-02-15,East,Notebook,38,12,456
+2025-02-15,North,Backpack,25,25,625
+2025-02-15,North,Office chair,34,120,4080
+2025-02-15,South,Backpack,5,25,125
+2025-02-15,South,Backpack,20,25,500
+2025-02-15,South,Notebook,10,12,120
+2025-02-15,West,Desk lamp,27,40,1080
+2025-02-15,West,Desk lamp,37,40,1480
+2025-02-15,West,Desk lamp,20,40,800
+2025-02-16,East,Headphones,14,75,1050
+2025-02-16,West,Desk lamp,38,40,1520
+2025-02-17,North,Backpack,30,25,750
+2025-02-17,North,Desk lamp,22,40,880
+2025-02-17,North,Desk lamp,16,40,640
+2025-02-17,South,Headphones,29,75,2175
+2025-02-17,South,Office chair,10,120,1200
+2025-02-17,South,Office chair,6,120,720
+2025-02-17,West,Backpack,40,25,1000
+2025-02-18,North,Headphones,14,75,1050
+2025-02-18,South,Backpack,6,25,150
+2025-02-18,South,Headphones,17,75,1275
+2025-02-18,West,Desk lamp,22,40,880
+2025-02-18,West,Headphones,26,75,1950
+2025-02-18,West,Headphones,27,75,2025
+2025-02-19,East,Backpack,20,25,500
+2025-02-19,East,Backpack,5,25,125
+2025-02-19,East,Headphones,22,75,1650
+2025-02-19,East,Office chair,20,120,2400
+2025-02-19,East,Office chair,9,120,1080
+2025-02-19,North,Backpack,22,25,550
+2025-02-19,South,Headphones,17,75,1275
+2025-02-19,South,Notebook,25,12,300
+2025-02-20,East,Backpack,2,25,50
+2025-02-20,North,Headphones,32,75,2400
+2025-02-20,North,Notebook,23,12,276
+2025-02-20,North,Office chair,13,120,1560
+2025-02-21,North,Headphones,33,75,2475
+2025-02-21,South,Notebook,25,12,300
+2025-02-21,West,Headphones,26,75,1950
+2025-02-21,West,Notebook,4,12,48
+2025-02-22,East,Desk lamp,30,40,1200
+2025-02-22,East,Desk lamp,30,40,1200
+2025-02-22,East,Office chair,37,120,4440
+2025-02-22,North,Backpack,1,25,25
+2025-02-22,North,Headphones,9,75,675
+2025-02-22,North,Headphones,24,75,1800
+2025-02-22,South,Backpack,10,25,250
+2025-02-22,West,Backpack,12,25,300
+2025-02-22,West,Headphones,8,75,600
+2025-02-22,West,Notebook,14,12,168
+2025-02-23,North,Headphones,39,75,2925
+2025-02-23,West,Notebook,4,12,48
+2025-02-23,West,Notebook,22,12,264
+2025-02-24,East,Headphones,6,75,450
+2025-02-24,East,Notebook,14,12,168
+2025-02-24,North,Office chair,35,120,4200
+2025-02-24,South,Backpack,28,25,700
+2025-02-24,South,Headphones,19,75,1425
+2025-02-24,South,Notebook,14,12,168
+2025-02-24,South,Office chair,35,120,4200
+2025-02-24,West,Backpack,27,25,675
+2025-02-24,West,Desk lamp,28,40,1120
+2025-02-25,East,Desk lamp,35,40,1400
+2025-02-25,East,Headphones,34,75,2550
+2025-02-25,East,Office chair,3,120,360
+2025-02-25,North,Desk lamp,19,40,760
+2025-02-25,West,Headphones,20,75,1500
+2025-02-26,East,Backpack,2,25,50
+2025-02-26,East,Headphones,15,75,1125
+2025-02-26,East,Office chair,4,120,480
+2025-02-26,South,Backpack,12,25,300
+2025-02-26,South,Notebook,38,12,456
+2025-02-26,South,Office chair,20,120,2400
+2025-02-26,West,Desk lamp,5,40,200
+2025-02-26,West,Desk lamp,8,40,320
+2025-02-27,East,Desk lamp,26,40,1040
+2025-02-27,North,Desk lamp,18,40,720
+2025-02-27,West,Headphones,40,75,3000
+2025-02-28,North,Notebook,5,12,60
+2025-02-28,South,Notebook,33,12,396
+2025-02-28,West,Backpack,30,25,750
+2025-02-28,West,Office chair,20,120,2400
+2025-03-01,East,Headphones,31,75,2325
+2025-03-01,East,Headphones,1,75,75
+2025-03-01,East,Notebook,1,12,12
+2025-03-01,North,Notebook,4,12,48
+2025-03-01,North,Office chair,18,120,2160
+2025-03-01,North,Office chair,8,120,960
+2025-03-01,South,Desk lamp,1,40,40
+2025-03-01,South,Notebook,37,12,444
+2025-03-02,East,Backpack,26,25,650
+2025-03-02,South,Headphones,19,75,1425
+2025-03-02,South,Headphones,33,75,2475
+2025-03-02,West,Backpack,10,25,250
+2025-03-02,West,Office chair,13,120,1560
+2025-03-03,East,Office chair,2,120,240
+2025-03-03,East,Office chair,5,120,600
+2025-03-03,South,Backpack,6,25,150
+2025-03-03,South,Desk lamp,26,40,1040
+2025-03-03,South,Office chair,19,120,2280
+2025-03-03,West,Headphones,25,75,1875
+2025-03-03,West,Notebook,25,12,300
+2025-03-03,West,Notebook,21,12,252
+2025-03-04,East,Office chair,33,120,3960
+2025-03-04,West,Desk lamp,16,40,640
+2025-03-04,West,Headphones,22,75,1650
+2025-03-05,East,Notebook,19,12,228
+2025-03-05,North,Notebook,39,12,468
+2025-03-05,South,Desk lamp,26,40,1040
+2025-03-05,West,Headphones,21,75,1575
+2025-03-05,West,Office chair,15,120,1800
+2025-03-06,East,Headphones,12,75,900
+2025-03-06,South,Desk lamp,17,40,680
+2025-03-06,South,Headphones,1,75,75
+2025-03-06,West,Backpack,14,25,350
+2025-03-06,West,Desk lamp,1,40,40
+2025-03-06,West,Office chair,35,120,4200
+2025-03-07,South,Desk lamp,36,40,1440
+2025-03-07,South,Headphones,23,75,1725
+2025-03-08,East,Backpack,1,25,25
+2025-03-08,East,Headphones,3,75,225
+2025-03-08,North,Notebook,38,12,456
+2025-03-08,South,Backpack,25,25,625
+2025-03-08,South,Notebook,2,12,24
+2025-03-08,South,Office chair,7,120,840
+2025-03-09,East,Backpack,30,25,750
+2025-03-09,North,Desk lamp,33,40,1320
+2025-03-09,North,Desk lamp,12,40,480
+2025-03-09,North,Notebook,23,12,276
+2025-03-09,South,Headphones,22,75,1650
+2025-03-09,South,Headphones,3,75,225
+2025-03-09,South,Notebook,34,12,408
+2025-03-10,North,Office chair,13,120,1560
+2025-03-11,North,Backpack,40,25,1000
+2025-03-11,North,Headphones,35,75,2625
+2025-03-11,North,Headphones,34,75,2550
+2025-03-11,North,Headphones,27,75,2025
+2025-03-11,North,Office chair,21,120,2520
+2025-03-11,West,Notebook,25,12,300
+2025-03-12,East,Backpack,19,25,475
+2025-03-12,East,Notebook,25,12,300
+2025-03-12,East,Office chair,21,120,2520
+2025-03-12,East,Office chair,21,120,2520
+2025-03-12,East,Office chair,20,120,2400
+2025-03-12,South,Backpack,10,25,250
+2025-03-12,South,Backpack,19,25,475
+2025-03-12,South,Headphones,30,75,2250
+2025-03-12,West,Headphones,33,75,2475
+2025-03-12,West,Office chair,31,120,3720
+2025-03-12,West,Office chair,24,120,2880
+2025-03-13,East,Backpack,36,25,900
+2025-03-13,East,Office chair,21,120,2520
+2025-03-13,North,Desk lamp,23,40,920
+2025-03-13,North,Desk lamp,22,40,880
+2025-03-13,North,Headphones,40,75,3000
+2025-03-13,South,Notebook,37,12,444
+2025-03-13,South,Notebook,40,12,480
+2025-03-14,North,Office chair,30,120,3600
+2025-03-14,West,Notebook,25,12,300
+2025-03-15,East,Office chair,14,120,1680
+2025-03-15,North,Desk lamp,36,40,1440
+2025-03-15,South,Notebook,29,12,348
+2025-03-15,South,Office chair,23,120,2760
+2025-03-15,West,Office chair,37,120,4440
+2025-03-15,West,Office chair,23,120,2760
+2025-03-15,West,Office chair,30,120,3600
+2025-03-16,East,Desk lamp,16,40,640
+2025-03-16,East,Office chair,36,120,4320
+2025-03-16,South,Desk lamp,7,40,280
+2025-03-16,South,Notebook,7,12,84
+2025-03-17,East,Backpack,8,25,200
+2025-03-17,East,Headphones,40,75,3000
+2025-03-17,North,Office chair,23,120,2760
+2025-03-17,South,Desk lamp,39,40,1560
+2025-03-17,South,Notebook,19,12,228
+2025-03-17,South,Notebook,36,12,432
+2025-03-17,South,Office chair,36,120,4320
+2025-03-17,West,Backpack,23,25,575
+2025-03-18,East,Backpack,18,25,450
+2025-03-18,North,Backpack,29,25,725
+2025-03-18,South,Headphones,36,75,2700
+2025-03-19,North,Desk lamp,39,40,1560
+2025-03-19,West,Desk lamp,23,40,920
+2025-03-19,West,Notebook,28,12,336
+2025-03-19,West,Notebook,33,12,396
+2025-03-20,East,Notebook,6,12,72
+2025-03-20,North,Desk lamp,13,40,520
+2025-03-20,North,Headphones,19,75,1425
+2025-03-20,North,Notebook,27,12,324
+2025-03-20,West,Office chair,19,120,2280
+2025-03-21,East,Backpack,23,25,575
+2025-03-21,East,Notebook,37,12,444
+2025-03-21,North,Headphones,25,75,1875
+2025-03-21,North,Office chair,20,120,2400
+2025-03-21,South,Notebook,9,12,108
+2025-03-21,West,Desk lamp,13,40,520
+2025-03-21,West,Office chair,37,120,4440
+2025-03-22,East,Backpack,20,25,500
+2025-03-22,East,Desk lamp,32,40,1280
+2025-03-22,East,Headphones,38,75,2850
+2025-03-22,East,Headphones,10,75,750
+2025-03-22,North,Desk lamp,2,40,80
+2025-03-22,North,Notebook,8,12,96
+2025-03-22,North,Office chair,7,120,840
+2025-03-22,North,Office chair,15,120,1800
+2025-03-22,South,Desk lamp,1,40,40
+2025-03-23,East,Headphones,4,75,300
+2025-03-23,South,Desk lamp,9,40,360
+2025-03-23,South,Office chair,38,120,4560
+2025-03-23,West,Desk lamp,5,40,200
+2025-03-23,West,Office chair,24,120,2880
+2025-03-24,East,Headphones,19,75,1425
+2025-03-24,North,Headphones,11,75,825
+2025-03-24,South,Headphones,15,75,1125
+2025-03-24,South,Office chair,15,120,1800
+2025-03-24,West,Backpack,33,25,825
+2025-03-24,West,Backpack,16,25,400
+2025-03-24,West,Headphones,18,75,1350
+2025-03-25,East,Headphones,7,75,525
+2025-03-25,North,Headphones,33,75,2475
+2025-03-25,North,Notebook,2,12,24
+2025-03-25,South,Backpack,24,25,600
+2025-03-25,South,Notebook,14,12,168
+2025-03-25,West,Desk lamp,31,40,1240
+2025-03-26,East,Desk lamp,26,40,1040
+2025-03-26,North,Backpack,10,25,250
+2025-03-26,North,Desk lamp,33,40,1320
+2025-03-26,West,Desk lamp,33,40,1320
+2025-03-27,East,Office chair,29,120,3480
+2025-03-27,North,Backpack,2,25,50
+2025-03-27,North,Desk lamp,30,40,1200
+2025-03-27,North,Desk lamp,10,40,400
+2025-03-27,South,Office chair,28,120,3360
+2025-03-27,South,Office chair,34,120,4080
+2025-03-27,West,Desk lamp,35,40,1400
+2025-03-28,East,Backpack,38,25,950
+2025-03-28,North,Backpack,7,25,175
+2025-03-28,South,Notebook,28,12,336
+2025-03-29,South,Office chair,16,120,1920
+2025-03-29,West,Backpack,22,25,550
+2025-03-29,West,Office chair,7,120,840
+2025-03-30,East,Desk lamp,2,40,80
+2025-03-30,East,Headphones,22,75,1650
+2025-03-30,South,Desk lamp,40,40,1600
+2025-03-30,South,Headphones,3,75,225
+2025-03-30,South,Notebook,6,12,72
+2025-03-30,West,Notebook,37,12,444
+2025-03-31,North,Desk lamp,30,40,1200
+2025-03-31,North,Desk lamp,13,40,520
+2025-03-31,North,Office chair,1,120,120
+2025-04-01,East,Backpack,2,25,50
+2025-04-01,East,Notebook,5,12,60
+2025-04-01,East,Notebook,5,12,60
+2025-04-01,North,Office chair,32,120,3840
+2025-04-01,North,Office chair,31,120,3720
+2025-04-01,South,Desk lamp,25,40,1000
+2025-04-01,South,Notebook,9,12,108
+2025-04-01,West,Notebook,31,12,372
+2025-04-01,West,Notebook,24,12,288
+2025-04-02,North,Office chair,6,120,720
+2025-04-02,West,Desk lamp,7,40,280
+2025-04-03,South,Office chair,35,120,4200
+2025-04-03,West,Notebook,34,12,408
+2025-04-03,West,Office chair,37,120,4440
+2025-04-04,East,Headphones,1,75,75
+2025-04-04,East,Headphones,27,75,2025
+2025-04-04,East,Notebook,9,12,108
+2025-04-04,North,Backpack,24,25,600
+2025-04-04,South,Desk lamp,10,40,400
+2025-04-04,West,Office chair,23,120,2760
+2025-04-05,East,Desk lamp,8,40,320
+2025-04-05,East,Office chair,29,120,3480
+2025-04-05,North,Headphones,9,75,675
+2025-04-05,North,Office chair,5,120,600
+2025-04-05,West,Notebook,31,12,372
+2025-04-05,West,Notebook,1,12,12
+2025-04-05,West,Office chair,1,120,120
+2025-04-06,South,Desk lamp,28,40,1120
+2025-04-06,South,Notebook,34,12,408
+2025-04-06,West,Headphones,17,75,1275
+2025-04-06,West,Headphones,26,75,1950
+2025-04-06,West,Headphones,7,75,525
+2025-04-07,East,Desk lamp,40,40,1600
+2025-04-07,South,Headphones,6,75,450
+2025-04-07,West,Headphones,28,75,2100
+2025-04-08,East,Backpack,17,25,425
+2025-04-08,East,Headphones,29,75,2175
+2025-04-08,East,Notebook,5,12,60
+2025-04-08,East,Office chair,24,120,2880
+2025-04-08,North,Headphones,39,75,2925
+2025-04-08,North,Notebook,13,12,156
+2025-04-08,South,Backpack,18,25,450
+2025-04-08,South,Office chair,12,120,1440
+2025-04-08,West,Backpack,7,25,175
+2025-04-08,West,Notebook,31,12,372
+2025-04-09,North,Office chair,19,120,2280
+2025-04-10,East,Headphones,39,75,2925
+2025-04-10,North,Headphones,36,75,2700
+2025-04-10,North,Notebook,22,12,264
+2025-04-10,West,Desk lamp,16,40,640
+2025-04-11,East,Desk lamp,11,40,440
+2025-04-11,East,Headphones,34,75,2550
+2025-04-11,North,Headphones,27,75,2025
+2025-04-11,North,Notebook,9,12,108
+2025-04-11,North,Notebook,13,12,156
+2025-04-12,North,Backpack,2,25,50
+2025-04-12,North,Notebook,10,12,120
+2025-04-12,North,Office chair,17,120,2040
+2025-04-12,South,Desk lamp,30,40,1200
+2025-04-12,West,Headphones,40,75,3000
+2025-04-13,East,Backpack,2,25,50
+2025-04-13,East,Desk lamp,33,40,1320
+2025-04-13,North,Backpack,7,25,175
+2025-04-13,North,Desk lamp,16,40,640
+2025-04-13,North,Headphones,36,75,2700
+2025-04-13,South,Backpack,16,25,400
+2025-04-13,South,Headphones,20,75,1500
+2025-04-13,West,Headphones,25,75,1875
+2025-04-14,East,Notebook,15,12,180
+2025-04-14,North,Backpack,27,25,675
+2025-04-14,South,Headphones,21,75,1575
+2025-04-14,West,Office chair,7,120,840
+2025-04-15,East,Office chair,24,120,2880
+2025-04-15,South,Notebook,18,12,216
+2025-04-15,West,Headphones,37,75,2775
+2025-04-15,West,Notebook,23,12,276
+2025-04-16,East,Headphones,9,75,675
+2025-04-16,North,Office chair,15,120,1800
+2025-04-16,North,Office chair,33,120,3960
+2025-04-16,South,Notebook,13,12,156
+2025-04-16,West,Desk lamp,26,40,1040
+2025-04-17,East,Backpack,15,25,375
+2025-04-17,East,Desk lamp,26,40,1040
+2025-04-17,East,Notebook,10,12,120
+2025-04-17,North,Desk lamp,11,40,440
+2025-04-17,South,Backpack,11,25,275
+2025-04-17,West,Office chair,7,120,840
+2025-04-18,East,Headphones,8,75,600
+2025-04-18,East,Notebook,11,12,132
+2025-04-18,North,Notebook,29,12,348
+2025-04-18,South,Backpack,4,25,100
+2025-04-18,South,Backpack,27,25,675
+2025-04-18,South,Headphones,13,75,975
+2025-04-19,East,Backpack,6,25,150
+2025-04-19,North,Desk lamp,33,40,1320
+2025-04-19,North,Headphones,22,75,1650
+2025-04-19,South,Headphones,35,75,2625
+2025-04-19,South,Headphones,33,75,2475
+2025-04-19,West,Notebook,19,12,228
+2025-04-20,East,Backpack,19,25,475
+2025-04-20,East,Notebook,26,12,312
+2025-04-20,East,Notebook,26,12,312
+2025-04-20,East,Office chair,29,120,3480
+2025-04-20,North,Office chair,28,120,3360
+2025-04-20,North,Office chair,40,120,4800
+2025-04-20,South,Headphones,29,75,2175
+2025-04-20,South,Notebook,28,12,336
+2025-04-20,West,Backpack,3,25,75
+2025-04-20,West,Headphones,7,75,525
+2025-04-21,East,Headphones,7,75,525
+2025-04-21,North,Headphones,6,75,450
+2025-04-21,North,Headphones,14,75,1050
+2025-04-21,North,Notebook,9,12,108
+2025-04-21,North,Notebook,2,12,24
+2025-04-21,South,Notebook,24,12,288
+2025-04-21,South,Notebook,28,12,336
+2025-04-21,West,Desk lamp,10,40,400
+2025-04-21,West,Headphones,28,75,2100
+2025-04-21,West,Headphones,30,75,2250
+2025-04-21,West,Notebook,3,12,36
+2025-04-22,North,Backpack,29,25,725
+2025-04-22,North,Notebook,15,12,180
+2025-04-22,South,Backpack,26,25,650
+2025-04-22,South,Backpack,38,25,950
+2025-04-22,South,Notebook,36,12,432
+2025-04-22,West,Desk lamp,12,40,480
+2025-04-22,West,Headphones,14,75,1050
+2025-04-22,West,Headphones,16,75,1200
+2025-04-23,East,Office chair,8,120,960
+2025-04-23,North,Desk lamp,25,40,1000
+2025-04-23,North,Headphones,25,75,1875
+2025-04-23,South,Office chair,37,120,4440
+2025-04-23,West,Notebook,7,12,84
+2025-04-23,West,Office chair,27,120,3240
+2025-04-24,North,Backpack,9,25,225
+2025-04-24,North,Desk lamp,39,40,1560
+2025-04-24,North,Desk lamp,39,40,1560
+2025-04-24,South,Office chair,36,120,4320
+2025-04-24,West,Notebook,28,12,336
+2025-04-25,North,Backpack,4,25,100
+2025-04-25,North,Backpack,24,25,600
+2025-04-25,North,Office chair,24,120,2880
+2025-04-25,South,Headphones,23,75,1725
+2025-04-25,South,Notebook,22,12,264
+2025-04-25,West,Notebook,29,12,348
+2025-04-26,East,Desk lamp,14,40,560
+2025-04-26,South,Backpack,3,25,75
+2025-04-26,West,Office chair,25,120,3000
+2025-04-27,East,Notebook,34,12,408
+2025-04-27,North,Desk lamp,38,40,1520
+2025-04-27,North,Headphones,19,75,1425
+2025-04-27,South,Notebook,6,12,72
+2025-04-27,West,Backpack,30,25,750
+2025-04-27,West,Notebook,17,12,204
+2025-04-28,North,Backpack,19,25,475
+2025-04-28,South,Office chair,37,120,4440
+2025-04-28,West,Backpack,19,25,475
+2025-04-28,West,Headphones,16,75,1200
+2025-04-29,East,Headphones,24,75,1800
+2025-04-29,North,Office chair,34,120,4080
+2025-04-29,South,Office chair,35,120,4200
+2025-04-29,West,Desk lamp,32,40,1280
+2025-04-30,East,Notebook,29,12,348
+2025-04-30,South,Backpack,39,25,975
+2025-04-30,West,Office chair,24,120,2880
+2025-04-30,West,Office chair,12,120,1440
+2025-05-01,North,Headphones,37,75,2775
+2025-05-01,South,Backpack,21,25,525
+2025-05-01,South,Backpack,7,25,175
+2025-05-01,South,Notebook,36,12,432
+2025-05-01,West,Backpack,2,25,50
+2025-05-01,West,Headphones,25,75,1875
+2025-05-01,West,Office chair,14,120,1680
+2025-05-02,North,Notebook,1,12,12
+2025-05-02,South,Headphones,29,75,2175
+2025-05-02,South,Office chair,10,120,1200
+2025-05-02,West,Headphones,35,75,2625
+2025-05-03,East,Headphones,1,75,75
+2025-05-03,East,Notebook,7,12,84
+2025-05-03,North,Backpack,4,25,100
+2025-05-03,North,Desk lamp,28,40,1120
+2025-05-03,South,Backpack,3,25,75
+2025-05-03,South,Desk lamp,2,40,80
+2025-05-03,South,Office chair,17,120,2040
+2025-05-03,West,Backpack,20,25,500
+2025-05-03,West,Desk lamp,13,40,520
+2025-05-03,West,Office chair,35,120,4200
+2025-05-03,West,Office chair,38,120,4560
+2025-05-04,East,Headphones,15,75,1125
+2025-05-04,North,Headphones,26,75,1950
+2025-05-04,North,Office chair,15,120,1800
+2025-05-04,South,Headphones,22,75,1650
+2025-05-05,East,Backpack,1,25,25
+2025-05-05,East,Headphones,20,75,1500
+2025-05-05,East,Notebook,31,12,372
+2025-05-05,North,Headphones,4,75,300
+2025-05-05,South,Notebook,31,12,372
+2025-05-05,West,Office chair,25,120,3000
+2025-05-06,East,Desk lamp,32,40,1280
+2025-05-06,East,Notebook,20,12,240
+2025-05-06,North,Office chair,8,120,960
+2025-05-06,South,Backpack,29,25,725
+2025-05-06,West,Desk lamp,35,40,1400
+2025-05-07,East,Desk lamp,10,40,400
+2025-05-07,North,Headphones,12,75,900
+2025-05-07,North,Notebook,4,12,48
+2025-05-07,North,Notebook,34,12,408
+2025-05-07,South,Backpack,29,25,725
+2025-05-07,South,Headphones,1,75,75
+2025-05-07,South,Office chair,3,120,360
+2025-05-07,West,Notebook,34,12,408
+2025-05-07,West,Notebook,12,12,144
+2025-05-08,North,Backpack,6,25,150
+2025-05-08,North,Notebook,31,12,372
+2025-05-08,South,Backpack,25,25,625
+2025-05-08,South,Office chair,13,120,1560
+2025-05-09,East,Desk lamp,8,40,320
+2025-05-09,East,Headphones,16,75,1200
+2025-05-09,North,Desk lamp,24,40,960
+2025-05-09,North,Office chair,26,120,3120
+2025-05-09,West,Headphones,14,75,1050
+2025-05-09,West,Headphones,38,75,2850
+2025-05-10,East,Backpack,8,25,200
+2025-05-10,East,Desk lamp,33,40,1320
+2025-05-10,North,Backpack,12,25,300
+2025-05-10,North,Desk lamp,12,40,480
+2025-05-10,South,Backpack,9,25,225
+2025-05-10,South,Desk lamp,33,40,1320
+2025-05-10,South,Notebook,10,12,120
+2025-05-10,West,Office chair,40,120,4800
+2025-05-11,East,Desk lamp,13,40,520
+2025-05-11,North,Headphones,15,75,1125
+2025-05-11,North,Headphones,1,75,75
+2025-05-11,West,Backpack,11,25,275
+2025-05-11,West,Backpack,20,25,500
+2025-05-11,West,Office chair,7,120,840
+2025-05-12,East,Backpack,20,25,500
+2025-05-12,East,Backpack,30,25,750
+2025-05-12,East,Desk lamp,23,40,920
+2025-05-12,North,Headphones,30,75,2250
+2025-05-12,North,Office chair,37,120,4440
+2025-05-12,North,Office chair,17,120,2040
+2025-05-12,South,Notebook,38,12,456
+2025-05-12,South,Notebook,40,12,480
+2025-05-12,West,Desk lamp,7,40,280
+2025-05-13,East,Backpack,23,25,575
+2025-05-13,North,Backpack,33,25,825
+2025-05-13,North,Office chair,38,120,4560
+2025-05-13,South,Headphones,9,75,675
+2025-05-14,South,Headphones,31,75,2325
+2025-05-14,West,Office chair,39,120,4680
+2025-05-15,East,Notebook,3,12,36
+2025-05-15,East,Notebook,13,12,156
+2025-05-15,East,Notebook,33,12,396
+2025-05-15,North,Backpack,37,25,925
+2025-05-15,North,Office chair,36,120,4320
+2025-05-15,South,Desk lamp,17,40,680
+2025-05-15,South,Office chair,3,120,360
+2025-05-16,North,Backpack,23,25,575
+2025-05-16,North,Desk lamp,16,40,640
+2025-05-16,North,Desk lamp,28,40,1120
+2025-05-16,South,Backpack,16,25,400
+2025-05-16,West,Desk lamp,39,40,1560
+2025-05-17,East,Desk lamp,26,40,1040
+2025-05-17,East,Office chair,23,120,2760
+2025-05-17,East,Office chair,7,120,840
+2025-05-17,North,Notebook,18,12,216
+2025-05-17,South,Backpack,29,25,725
+2025-05-17,South,Desk lamp,16,40,640
+2025-05-17,South,Desk lamp,36,40,1440
+2025-05-17,South,Headphones,28,75,2100
+2025-05-17,South,Headphones,18,75,1350
+2025-05-17,West,Backpack,36,25,900
+2025-05-17,West,Desk lamp,22,40,880
+2025-05-18,East,Notebook,32,12,384
+2025-05-18,North,Backpack,33,25,825
+2025-05-18,North,Headphones,13,75,975
+2025-05-18,West,Backpack,10,25,250
+2025-05-19,North,Notebook,30,12,360
+2025-05-19,North,Office chair,35,120,4200
+2025-05-19,North,Office chair,16,120,1920
+2025-05-19,South,Notebook,15,12,180
+2025-05-19,South,Office chair,38,120,4560
+2025-05-19,West,Backpack,28,25,700
+2025-05-19,West,Office chair,23,120,2760
+2025-05-20,East,Backpack,34,25,850
+2025-05-20,East,Headphones,32,75,2400
+2025-05-20,North,Desk lamp,9,40,360
+2025-05-20,West,Notebook,23,12,276
+2025-05-20,West,Office chair,29,120,3480
+2025-05-21,East,Headphones,9,75,675
+2025-05-21,North,Backpack,26,25,650
+2025-05-21,North,Headphones,35,75,2625
+2025-05-21,West,Desk lamp,36,40,1440
+2025-05-21,West,Desk lamp,29,40,1160
+2025-05-22,East,Notebook,21,12,252
+2025-05-22,East,Office chair,9,120,1080
+2025-05-22,South,Backpack,13,25,325
+2025-05-22,South,Desk lamp,40,40,1600
+2025-05-22,West,Headphones,35,75,2625
+2025-05-23,North,Headphones,8,75,600
+2025-05-23,North,Office chair,35,120,4200
+2025-05-23,South,Headphones,24,75,1800
+2025-05-23,South,Notebook,34,12,408
+2025-05-23,West,Notebook,23,12,276
+2025-05-23,West,Office chair,27,120,3240
+2025-05-24,East,Notebook,10,12,120
+2025-05-24,South,Notebook,25,12,300
+2025-05-24,South,Office chair,6,120,720
+2025-05-25,East,Backpack,25,25,625
+2025-05-25,East,Office chair,26,120,3120
+2025-05-25,North,Backpack,22,25,550
+2025-05-25,North,Backpack,5,25,125
+2025-05-25,North,Headphones,27,75,2025
+2025-05-26,East,Headphones,9,75,675
+2025-05-26,South,Backpack,9,25,225
+2025-05-26,West,Backpack,14,25,350
+2025-05-27,North,Desk lamp,35,40,1400
+2025-05-27,North,Notebook,32,12,384
+2025-05-27,North,Office chair,9,120,1080
+2025-05-27,South,Office chair,7,120,840
+2025-05-28,East,Backpack,24,25,600
+2025-05-28,East,Notebook,27,12,324
+2025-05-28,South,Backpack,14,25,350
+2025-05-28,West,Backpack,1,25,25
+2025-05-28,West,Headphones,36,75,2700
+2025-05-29,South,Notebook,23,12,276
+2025-05-30,East,Headphones,15,75,1125
+2025-05-30,North,Desk lamp,40,40,1600
+2025-05-30,North,Desk lamp,1,40,40
+2025-05-30,North,Office chair,16,120,1920
+2025-05-30,South,Backpack,2,25,50
+2025-05-30,South,Headphones,37,75,2775
+2025-05-30,South,Notebook,15,12,180
+2025-05-30,South,Office chair,16,120,1920
+2025-05-30,West,Backpack,13,25,325
+2025-05-31,East,Backpack,28,25,700
+2025-05-31,North,Backpack,13,25,325
+2025-05-31,North,Notebook,3,12,36
+2025-05-31,West,Notebook,2,12,24
+2025-05-31,West,Notebook,3,12,36
+2025-06-01,East,Backpack,22,25,550
+2025-06-01,East,Notebook,25,12,300
+2025-06-01,North,Backpack,33,25,825
+2025-06-01,North,Headphones,29,75,2175
+2025-06-01,South,Office chair,31,120,3720
+2025-06-02,East,Notebook,6,12,72
+2025-06-02,North,Backpack,30,25,750
+2025-06-02,North,Office chair,9,120,1080
+2025-06-03,East,Notebook,39,12,468
+2025-06-03,West,Office chair,11,120,1320
+2025-06-04,East,Desk lamp,3,40,120
+2025-06-04,East,Notebook,33,12,396
+2025-06-04,East,Notebook,26,12,312
+2025-06-04,North,Backpack,2,25,50
+2025-06-04,South,Office chair,14,120,1680
+2025-06-05,East,Backpack,18,25,450
+2025-06-05,East,Notebook,29,12,348
+2025-06-05,North,Headphones,30,75,2250
+2025-06-05,South,Headphones,21,75,1575
+2025-06-05,West,Office chair,12,120,1440
+2025-06-06,East,Headphones,33,75,2475
+2025-06-06,East,Notebook,16,12,192
+2025-06-06,North,Headphones,1,75,75
+2025-06-06,North,Notebook,12,12,144
+2025-06-06,North,Office chair,1,120,120
+2025-06-06,South,Desk lamp,38,40,1520
+2025-06-06,South,Notebook,31,12,372
+2025-06-06,West,Backpack,32,25,800
+2025-06-07,South,Backpack,25,25,625
+2025-06-07,West,Backpack,27,25,675
+2025-06-07,West,Notebook,1,12,12
+2025-06-08,East,Notebook,25,12,300
+2025-06-08,East,Notebook,2,12,24
+2025-06-08,East,Office chair,30,120,3600
+2025-06-08,North,Desk lamp,20,40,800
+2025-06-08,South,Headphones,19,75,1425
+2025-06-09,East,Backpack,24,25,600
+2025-06-09,North,Desk lamp,22,40,880
+2025-06-09,South,Backpack,26,25,650
+2025-06-09,South,Headphones,10,75,750
+2025-06-09,South,Notebook,12,12,144
+2025-06-10,East,Headphones,36,75,2700
+2025-06-10,East,Notebook,14,12,168
+2025-06-10,East,Office chair,35,120,4200
+2025-06-10,North,Office chair,14,120,1680
+2025-06-10,South,Headphones,7,75,525
+2025-06-10,West,Notebook,29,12,348
+2025-06-11,East,Desk lamp,17,40,680
+2025-06-11,East,Headphones,36,75,2700
+2025-06-11,West,Backpack,22,25,550
+2025-06-11,West,Office chair,1,120,120
+2025-06-12,East,Desk lamp,33,40,1320
+2025-06-12,North,Headphones,29,75,2175
+2025-06-12,South,Backpack,11,25,275
+2025-06-13,North,Desk lamp,6,40,240
+2025-06-14,East,Headphones,21,75,1575
+2025-06-14,East,Notebook,21,12,252
+2025-06-14,South,Notebook,31,12,372
+2025-06-14,West,Notebook,27,12,324
+2025-06-15,East,Desk lamp,24,40,960
+2025-06-15,South,Desk lamp,18,40,720
+2025-06-15,South,Desk lamp,37,40,1480
+2025-06-15,South,Office chair,20,120,2400
+2025-06-15,West,Desk lamp,2,40,80
+2025-06-16,North,Headphones,21,75,1575
+2025-06-16,North,Notebook,8,12,96
+2025-06-16,South,Headphones,17,75,1275
+2025-06-16,South,Notebook,17,12,204
+2025-06-16,West,Backpack,33,25,825
+2025-06-17,North,Desk lamp,19,40,760
+2025-06-17,South,Headphones,35,75,2625
+2025-06-17,South,Notebook,35,12,420
+2025-06-17,West,Headphones,37,75,2775
+2025-06-18,East,Backpack,11,25,275
+2025-06-18,East,Backpack,3,25,75
+2025-06-18,East,Headphones,29,75,2175
+2025-06-18,East,Notebook,8,12,96
+2025-06-18,South,Backpack,20,25,500
+2025-06-18,West,Backpack,28,25,700
+2025-06-18,West,Headphones,33,75,2475
+2025-06-18,West,Notebook,5,12,60
+2025-06-18,West,Office chair,32,120,3840
+2025-06-19,East,Headphones,10,75,750
+2025-06-19,North,Desk lamp,30,40,1200
+2025-06-19,North,Desk lamp,1,40,40
+2025-06-19,North,Headphones,7,75,525
+2025-06-19,West,Backpack,4,25,100
+2025-06-19,West,Backpack,26,25,650
+2025-06-19,West,Backpack,20,25,500
+2025-06-19,West,Desk lamp,23,40,920
+2025-06-19,West,Desk lamp,8,40,320
+2025-06-20,East,Desk lamp,7,40,280
+2025-06-20,East,Desk lamp,36,40,1440
+2025-06-20,North,Backpack,30,25,750
+2025-06-20,North,Desk lamp,14,40,560
+2025-06-20,North,Office chair,3,120,360
+2025-06-20,South,Headphones,30,75,2250
+2025-06-20,South,Headphones,26,75,1950
+2025-06-20,South,Headphones,33,75,2475
+2025-06-20,West,Desk lamp,29,40,1160
+2025-06-20,West,Desk lamp,1,40,40
+2025-06-21,East,Backpack,39,25,975
+2025-06-21,North,Headphones,2,75,150
+2025-06-21,North,Notebook,20,12,240
+2025-06-21,South,Backpack,37,25,925
+2025-06-21,South,Headphones,7,75,525
+2025-06-21,South,Office chair,10,120,1200
+2025-06-21,West,Headphones,25,75,1875
+2025-06-22,East,Backpack,40,25,1000
+2025-06-22,East,Headphones,12,75,900
+2025-06-22,South,Desk lamp,31,40,1240
+2025-06-22,South,Headphones,29,75,2175
+2025-06-23,East,Office chair,33,120,3960
+2025-06-23,South,Headphones,34,75,2550
+2025-06-24,East,Desk lamp,6,40,240
+2025-06-24,East,Office chair,13,120,1560
+2025-06-24,North,Backpack,24,25,600
+2025-06-24,South,Backpack,8,25,200
+2025-06-25,East,Backpack,27,25,675
+2025-06-25,North,Desk lamp,25,40,1000
+2025-06-25,North,Desk lamp,25,40,1000
+2025-06-25,South,Backpack,25,25,625
+2025-06-25,South,Headphones,6,75,450
+2025-06-25,West,Headphones,6,75,450
+2025-06-25,West,Office chair,14,120,1680
+2025-06-26,East,Headphones,27,75,2025
+2025-06-26,East,Notebook,13,12,156
+2025-06-26,North,Backpack,32,25,800
+2025-06-26,North,Headphones,4,75,300
+2025-06-26,South,Backpack,20,25,500
+2025-06-27,North,Notebook,13,12,156
+2025-06-27,South,Desk lamp,10,40,400
+2025-06-27,South,Desk lamp,35,40,1400
+2025-06-27,South,Headphones,19,75,1425
+2025-06-27,South,Headphones,21,75,1575
+2025-06-27,West,Desk lamp,16,40,640
+2025-06-28,East,Office chair,5,120,600
+2025-06-28,North,Office chair,26,120,3120
+2025-06-28,West,Desk lamp,29,40,1160
+2025-06-28,West,Headphones,15,75,1125
+2025-06-29,North,Backpack,35,25,875
+2025-06-29,North,Headphones,24,75,1800
+2025-06-29,South,Backpack,37,25,925
+2025-06-29,South,Desk lamp,10,40,400
+2025-06-29,West,Backpack,2,25,50
+2025-06-29,West,Notebook,8,12,96
+2025-06-30,South,Backpack,8,25,200
+2025-06-30,South,Desk lamp,29,40,1160
+2025-06-30,South,Office chair,32,120,3840
+2025-07-01,East,Desk lamp,8,40,320
+2025-07-01,North,Backpack,36,25,900
+2025-07-01,North,Backpack,37,25,925
+2025-07-01,North,Office chair,13,120,1560
+2025-07-01,North,Office chair,18,120,2160
+2025-07-01,South,Desk lamp,21,40,840
+2025-07-01,South,Desk lamp,25,40,1000
+2025-07-01,West,Notebook,40,12,480
+2025-07-01,West,Notebook,34,12,408
+2025-07-01,West,Office chair,24,120,2880
+2025-07-02,East,Backpack,2,25,50
+2025-07-02,East,Headphones,4,75,300
+2025-07-02,East,Headphones,38,75,2850
+2025-07-02,East,Notebook,39,12,468
+2025-07-02,East,Office chair,8,120,960
+2025-07-02,North,Headphones,30,75,2250
+2025-07-02,South,Headphones,25,75,1875
+2025-07-02,South,Notebook,13,12,156
+2025-07-02,West,Notebook,15,12,180
+2025-07-03,East,Backpack,11,25,275
+2025-07-03,North,Backpack,16,25,400
+2025-07-03,North,Office chair,38,120,4560
+2025-07-03,South,Headphones,32,75,2400
+2025-07-03,South,Office chair,5,120,600
+2025-07-03,West,Backpack,40,25,1000
+2025-07-03,West,Desk lamp,2,40,80
+2025-07-03,West,Headphones,9,75,675
+2025-07-04,North,Headphones,22,75,1650
+2025-07-04,North,Notebook,16,12,192
+2025-07-04,South,Backpack,20,25,500
+2025-07-04,South,Desk lamp,4,40,160
+2025-07-04,South,Notebook,1,12,12
+2025-07-04,West,Headphones,27,75,2025
+2025-07-05,East,Headphones,26,75,1950
+2025-07-05,East,Notebook,2,12,24
+2025-07-05,East,Notebook,25,12,300
+2025-07-05,South,Desk lamp,10,40,400
+2025-07-06,South,Desk lamp,31,40,1240
+2025-07-06,South,Desk lamp,31,40,1240
+2025-07-06,South,Headphones,16,75,1200
+2025-07-06,West,Backpack,1,25,25
+2025-07-07,East,Desk lamp,13,40,520
+2025-07-07,South,Office chair,10,120,1200
+2025-07-07,West,Desk lamp,18,40,720
+2025-07-07,West,Notebook,29,12,348
+2025-07-07,West,Office chair,32,120,3840
+2025-07-07,West,Office chair,24,120,2880
+2025-07-08,East,Desk lamp,3,40,120
+2025-07-08,East,Headphones,38,75,2850
+2025-07-08,East,Notebook,32,12,384
+2025-07-08,South,Backpack,7,25,175
+2025-07-08,South,Headphones,18,75,1350
+2025-07-08,South,Notebook,7,12,84
+2025-07-08,West,Headphones,33,75,2475
+2025-07-09,East,Desk lamp,39,40,1560
+2025-07-09,East,Office chair,40,120,4800
+2025-07-09,North,Headphones,28,75,2100
+2025-07-09,North,Notebook,27,12,324
+2025-07-09,South,Desk lamp,39,40,1560
+2025-07-09,South,Office chair,30,120,3600
+2025-07-09,West,Headphones,34,75,2550
+2025-07-09,West,Notebook,28,12,336
+2025-07-09,West,Notebook,38,12,456
+2025-07-10,East,Office chair,39,120,4680
+2025-07-10,North,Notebook,22,12,264
+2025-07-10,North,Notebook,22,12,264
+2025-07-10,West,Backpack,7,25,175
+2025-07-10,West,Backpack,36,25,900
+2025-07-10,West,Headphones,5,75,375
+2025-07-10,West,Office chair,32,120,3840
+2025-07-11,East,Headphones,16,75,1200
+2025-07-11,East,Notebook,24,12,288
+2025-07-11,North,Backpack,7,25,175
+2025-07-11,North,Headphones,15,75,1125
+2025-07-11,North,Office chair,40,120,4800
+2025-07-11,West,Desk lamp,10,40,400
+2025-07-12,East,Notebook,23,12,276
+2025-07-12,East,Notebook,39,12,468
+2025-07-12,North,Backpack,36,25,900
+2025-07-12,North,Notebook,18,12,216
+2025-07-12,South,Backpack,16,25,400
+2025-07-12,South,Backpack,11,25,275
+2025-07-12,South,Headphones,36,75,2700
+2025-07-12,South,Office chair,17,120,2040
+2025-07-12,West,Backpack,28,25,700
+2025-07-12,West,Notebook,3,12,36
+2025-07-13,North,Headphones,39,75,2925
+2025-07-13,North,Notebook,39,12,468
+2025-07-13,North,Office chair,2,120,240
+2025-07-13,North,Office chair,10,120,1200
+2025-07-13,West,Backpack,27,25,675
+2025-07-14,East,Backpack,36,25,900
+2025-07-14,East,Notebook,28,12,336
+2025-07-14,South,Headphones,14,75,1050
+2025-07-14,West,Backpack,35,25,875
+2025-07-14,West,Headphones,22,75,1650
+2025-07-15,East,Office chair,20,120,2400
+2025-07-15,North,Backpack,36,25,900
+2025-07-15,North,Backpack,12,25,300
+2025-07-15,North,Desk lamp,28,40,1120
+2025-07-15,South,Notebook,8,12,96
+2025-07-16,East,Backpack,10,25,250
+2025-07-16,East,Desk lamp,13,40,520
+2025-07-16,East,Headphones,20,75,1500
+2025-07-16,East,Office chair,18,120,2160
+2025-07-17,East,Desk lamp,20,40,800
+2025-07-17,North,Desk lamp,29,40,1160
+2025-07-17,North,Desk lamp,20,40,800
+2025-07-17,North,Notebook,14,12,168
+2025-07-17,South,Desk lamp,39,40,1560
+2025-07-17,South,Desk lamp,23,40,920
+2025-07-17,West,Office chair,5,120,600
+2025-07-18,East,Desk lamp,16,40,640
+2025-07-18,North,Notebook,20,12,240
+2025-07-18,North,Notebook,17,12,204
+2025-07-18,West,Backpack,28,25,700
+2025-07-18,West,Desk lamp,22,40,880
+2025-07-18,West,Headphones,38,75,2850
+2025-07-19,East,Backpack,18,25,450
+2025-07-19,East,Desk lamp,7,40,280
+2025-07-19,East,Notebook,30,12,360
+2025-07-19,North,Headphones,26,75,1950
+2025-07-19,South,Backpack,11,25,275
+2025-07-20,East,Notebook,6,12,72
+2025-07-20,East,Office chair,31,120,3720
+2025-07-20,North,Notebook,2,12,24
+2025-07-20,South,Headphones,7,75,525
+2025-07-20,West,Backpack,38,25,950
+2025-07-20,West,Backpack,11,25,275
+2025-07-21,East,Desk lamp,36,40,1440
+2025-07-21,East,Notebook,18,12,216
+2025-07-21,East,Notebook,2,12,24
+2025-07-21,South,Backpack,11,25,275
+2025-07-21,South,Desk lamp,25,40,1000
+2025-07-21,West,Notebook,33,12,396
+2025-07-22,East,Desk lamp,2,40,80
+2025-07-22,South,Backpack,10,25,250
+2025-07-22,South,Backpack,9,25,225
+2025-07-22,South,Desk lamp,18,40,720
+2025-07-22,West,Notebook,16,12,192
+2025-07-22,West,Notebook,8,12,96
+2025-07-23,East,Desk lamp,3,40,120
+2025-07-23,North,Headphones,1,75,75
+2025-07-23,South,Notebook,37,12,444
+2025-07-23,West,Desk lamp,22,40,880
+2025-07-24,South,Headphones,40,75,3000
+2025-07-24,South,Office chair,32,120,3840
+2025-07-25,East,Office chair,22,120,2640
+2025-07-25,North,Office chair,34,120,4080
+2025-07-25,West,Office chair,25,120,3000
+2025-07-25,West,Office chair,11,120,1320
+2025-07-26,East,Notebook,31,12,372
+2025-07-26,South,Headphones,26,75,1950
+2025-07-26,West,Notebook,23,12,276
+2025-07-27,East,Desk lamp,36,40,1440
+2025-07-27,South,Notebook,12,12,144
+2025-07-27,West,Headphones,3,75,225
+2025-07-27,West,Office chair,24,120,2880
+2025-07-28,East,Headphones,40,75,3000
+2025-07-28,East,Office chair,6,120,720
+2025-07-28,East,Office chair,12,120,1440
+2025-07-28,South,Desk lamp,12,40,480
+2025-07-28,South,Desk lamp,6,40,240
+2025-07-28,South,Headphones,9,75,675
+2025-07-28,West,Desk lamp,13,40,520
+2025-07-29,East,Notebook,17,12,204
+2025-07-29,North,Backpack,5,25,125
+2025-07-29,North,Headphones,38,75,2850
+2025-07-29,North,Notebook,8,12,96
+2025-07-29,North,Office chair,20,120,2400
+2025-07-29,South,Headphones,21,75,1575
+2025-07-29,West,Office chair,35,120,4200
+2025-07-30,South,Headphones,13,75,975
+2025-07-30,South,Office chair,9,120,1080
+2025-07-30,West,Notebook,19,12,228
+2025-07-30,West,Office chair,25,120,3000
+2025-07-31,North,Notebook,21,12,252
+2025-07-31,South,Desk lamp,7,40,280
+2025-07-31,South,Headphones,40,75,3000
+2025-07-31,West,Notebook,34,12,408
+2025-08-01,East,Desk lamp,39,40,1560
+2025-08-01,South,Backpack,11,25,275
+2025-08-01,South,Office chair,7,120,840
+2025-08-01,West,Desk lamp,40,40,1600
+2025-08-02,North,Headphones,29,75,2175
+2025-08-02,South,Backpack,14,25,350
+2025-08-02,West,Notebook,11,12,132
+2025-08-03,East,Notebook,25,12,300
+2025-08-03,South,Desk lamp,31,40,1240
+2025-08-03,South,Desk lamp,30,40,1200
+2025-08-03,South,Office chair,27,120,3240
+2025-08-03,South,Office chair,17,120,2040
+2025-08-04,North,Backpack,11,25,275
+2025-08-04,North,Desk lamp,10,40,400
+2025-08-04,North,Desk lamp,33,40,1320
+2025-08-04,South,Backpack,8,25,200
+2025-08-04,South,Headphones,33,75,2475
+2025-08-04,West,Desk lamp,35,40,1400
+2025-08-05,East,Notebook,26,12,312
+2025-08-05,East,Office chair,34,120,4080
+2025-08-05,North,Backpack,38,25,950
+2025-08-05,North,Headphones,4,75,300
+2025-08-05,West,Headphones,17,75,1275
+2025-08-05,West,Headphones,6,75,450
+2025-08-05,West,Notebook,3,12,36
+2025-08-06,East,Headphones,24,75,1800
+2025-08-06,East,Headphones,9,75,675
+2025-08-06,East,Headphones,36,75,2700
+2025-08-06,East,Notebook,22,12,264
+2025-08-06,East,Office chair,27,120,3240
+2025-08-06,North,Desk lamp,7,40,280
+2025-08-06,South,Backpack,11,25,275
+2025-08-06,South,Desk lamp,29,40,1160
+2025-08-06,South,Notebook,3,12,36
+2025-08-06,West,Notebook,27,12,324
+2025-08-07,East,Headphones,16,75,1200
+2025-08-07,South,Desk lamp,16,40,640
+2025-08-07,West,Backpack,39,25,975
+2025-08-07,West,Notebook,13,12,156
+2025-08-07,West,Office chair,23,120,2760
+2025-08-08,North,Desk lamp,8,40,320
+2025-08-08,North,Desk lamp,36,40,1440
+2025-08-08,West,Headphones,19,75,1425
+2025-08-08,West,Office chair,21,120,2520
+2025-08-08,West,Office chair,1,120,120
+2025-08-09,East,Desk lamp,32,40,1280
+2025-08-09,East,Headphones,3,75,225
+2025-08-09,South,Office chair,19,120,2280
+2025-08-09,West,Desk lamp,35,40,1400
+2025-08-09,West,Office chair,16,120,1920
+2025-08-10,East,Backpack,15,25,375
+2025-08-10,North,Backpack,30,25,750
+2025-08-10,North,Desk lamp,18,40,720
+2025-08-10,North,Desk lamp,24,40,960
+2025-08-10,North,Headphones,34,75,2550
+2025-08-10,North,Headphones,40,75,3000
+2025-08-10,South,Backpack,37,25,925
+2025-08-11,East,Notebook,30,12,360
+2025-08-11,South,Notebook,33,12,396
+2025-08-11,South,Office chair,15,120,1800
+2025-08-11,West,Headphones,3,75,225
+2025-08-12,South,Desk lamp,38,40,1520
+2025-08-12,West,Backpack,31,25,775
+2025-08-13,North,Desk lamp,23,40,920
+2025-08-13,South,Headphones,23,75,1725
+2025-08-13,West,Office chair,11,120,1320
+2025-08-14,East,Desk lamp,2,40,80
+2025-08-14,North,Headphones,1,75,75
+2025-08-14,West,Headphones,34,75,2550
+2025-08-15,East,Headphones,16,75,1200
+2025-08-15,North,Office chair,24,120,2880
+2025-08-15,South,Desk lamp,17,40,680
+2025-08-15,South,Office chair,1,120,120
+2025-08-15,South,Office chair,30,120,3600
+2025-08-15,West,Notebook,11,12,132
+2025-08-16,North,Notebook,13,12,156
+2025-08-16,West,Backpack,25,25,625
+2025-08-17,East,Backpack,9,25,225
+2025-08-17,East,Backpack,3,25,75
+2025-08-17,East,Headphones,7,75,525
+2025-08-17,East,Headphones,39,75,2925
+2025-08-17,East,Headphones,30,75,2250
+2025-08-17,East,Office chair,39,120,4680
+2025-08-17,North,Backpack,3,25,75
+2025-08-17,North,Backpack,23,25,575
+2025-08-17,North,Notebook,26,12,312
+2025-08-17,North,Office chair,21,120,2520
+2025-08-17,South,Backpack,36,25,900
+2025-08-17,West,Backpack,11,25,275
+2025-08-17,West,Desk lamp,15,40,600
+2025-08-18,East,Headphones,35,75,2625
+2025-08-18,East,Notebook,17,12,204
+2025-08-18,East,Notebook,19,12,228
+2025-08-18,North,Office chair,7,120,840
+2025-08-18,South,Office chair,27,120,3240
+2025-08-18,South,Office chair,15,120,1800
+2025-08-18,West,Backpack,27,25,675
+2025-08-18,West,Desk lamp,14,40,560
+2025-08-18,West,Headphones,31,75,2325
+2025-08-18,West,Notebook,13,12,156
+2025-08-18,West,Office chair,22,120,2640
+2025-08-19,East,Headphones,16,75,1200
+2025-08-19,North,Backpack,8,25,200
+2025-08-19,North,Headphones,32,75,2400
+2025-08-19,North,Notebook,36,12,432
+2025-08-19,North,Office chair,3,120,360
+2025-08-19,South,Backpack,11,25,275
+2025-08-20,East,Backpack,11,25,275
+2025-08-20,East,Headphones,3,75,225
+2025-08-20,North,Notebook,6,12,72
+2025-08-20,South,Office chair,5,120,600
+2025-08-20,South,Office chair,34,120,4080
+2025-08-21,East,Office chair,20,120,2400
+2025-08-21,North,Office chair,33,120,3960
+2025-08-21,South,Headphones,21,75,1575
+2025-08-21,West,Backpack,2,25,50
+2025-08-21,West,Notebook,10,12,120
+2025-08-22,East,Backpack,12,25,300
+2025-08-22,East,Headphones,14,75,1050
+2025-08-22,East,Office chair,27,120,3240
+2025-08-22,North,Notebook,12,12,144
+2025-08-22,West,Headphones,9,75,675
+2025-08-23,East,Headphones,30,75,2250
+2025-08-23,East,Headphones,7,75,525
+2025-08-23,North,Notebook,16,12,192
+2025-08-23,North,Office chair,18,120,2160
+2025-08-24,North,Backpack,14,25,350
+2025-08-24,South,Desk lamp,38,40,1520
+2025-08-24,West,Backpack,37,25,925
+2025-08-24,West,Headphones,20,75,1500
+2025-08-25,East,Backpack,15,25,375
+2025-08-25,East,Notebook,23,12,276
+2025-08-25,North,Notebook,7,12,84
+2025-08-26,East,Desk lamp,9,40,360
+2025-08-26,North,Office chair,23,120,2760
+2025-08-27,East,Office chair,3,120,360
+2025-08-27,North,Backpack,27,25,675
+2025-08-27,North,Headphones,17,75,1275
+2025-08-27,North,Office chair,27,120,3240
+2025-08-27,West,Backpack,36,25,900
+2025-08-27,West,Headphones,37,75,2775
+2025-08-28,East,Backpack,34,25,850
+2025-08-28,East,Desk lamp,30,40,1200
+2025-08-28,East,Headphones,20,75,1500
+2025-08-28,South,Notebook,36,12,432
+2025-08-28,West,Office chair,29,120,3480
+2025-08-29,South,Desk lamp,8,40,320
+2025-08-29,West,Headphones,18,75,1350
+2025-08-29,West,Notebook,5,12,60
+2025-08-29,West,Office chair,40,120,4800
+2025-08-30,East,Backpack,22,25,550
+2025-08-30,East,Desk lamp,16,40,640
+2025-08-30,East,Headphones,32,75,2400
+2025-08-30,North,Desk lamp,23,40,920
+2025-08-30,North,Headphones,16,75,1200
+2025-08-30,South,Notebook,11,12,132
+2025-08-31,East,Desk lamp,17,40,680
+2025-08-31,East,Notebook,29,12,348
+2025-08-31,East,Office chair,19,120,2280
+2025-08-31,North,Notebook,19,12,228
+2025-08-31,South,Backpack,20,25,500
+2025-08-31,South,Desk lamp,38,40,1520
+2025-08-31,West,Office chair,27,120,3240
+2025-08-31,West,Office chair,32,120,3840
+2025-09-01,East,Backpack,30,25,750
+2025-09-01,South,Headphones,24,75,1800
+2025-09-01,West,Desk lamp,25,40,1000
+2025-09-01,West,Office chair,3,120,360
+2025-09-02,North,Desk lamp,12,40,480
+2025-09-02,South,Office chair,29,120,3480
+2025-09-02,West,Headphones,26,75,1950
+2025-09-02,West,Headphones,31,75,2325
+2025-09-03,East,Headphones,8,75,600
+2025-09-03,North,Notebook,10,12,120
+2025-09-03,South,Headphones,11,75,825
+2025-09-03,South,Notebook,31,12,372
+2025-09-03,West,Office chair,30,120,3600
+2025-09-04,East,Headphones,7,75,525
+2025-09-04,East,Office chair,13,120,1560
+2025-09-04,South,Backpack,31,25,775
+2025-09-04,South,Office chair,34,120,4080
+2025-09-04,South,Office chair,31,120,3720
+2025-09-05,East,Desk lamp,16,40,640
+2025-09-05,East,Desk lamp,22,40,880
+2025-09-05,North,Backpack,8,25,200
+2025-09-05,North,Backpack,26,25,650
+2025-09-05,South,Backpack,13,25,325
+2025-09-05,South,Headphones,12,75,900
+2025-09-05,South,Office chair,2,120,240
+2025-09-05,West,Notebook,34,12,408
+2025-09-06,East,Headphones,6,75,450
+2025-09-06,East,Headphones,13,75,975
+2025-09-06,North,Backpack,19,25,475
+2025-09-06,South,Desk lamp,27,40,1080
+2025-09-06,South,Headphones,8,75,600
+2025-09-06,South,Notebook,32,12,384
+2025-09-06,South,Notebook,10,12,120
+2025-09-06,South,Office chair,28,120,3360
+2025-09-07,North,Headphones,10,75,750
+2025-09-07,South,Headphones,21,75,1575
+2025-09-07,South,Headphones,23,75,1725
+2025-09-07,South,Office chair,16,120,1920
+2025-09-07,West,Desk lamp,3,40,120
+2025-09-07,West,Desk lamp,22,40,880
+2025-09-07,West,Notebook,7,12,84
+2025-09-08,East,Desk lamp,5,40,200
+2025-09-08,East,Headphones,10,75,750
+2025-09-08,North,Office chair,30,120,3600
+2025-09-08,South,Headphones,12,75,900
+2025-09-08,West,Notebook,20,12,240
+2025-09-09,East,Headphones,19,75,1425
+2025-09-09,East,Notebook,38,12,456
+2025-09-09,North,Notebook,25,12,300
+2025-09-09,West,Office chair,36,120,4320
+2025-09-10,East,Office chair,37,120,4440
+2025-09-10,North,Backpack,20,25,500
+2025-09-10,North,Backpack,11,25,275
+2025-09-10,North,Notebook,26,12,312
+2025-09-10,South,Notebook,26,12,312
+2025-09-10,South,Notebook,31,12,372
+2025-09-10,West,Backpack,8,25,200
+2025-09-10,West,Backpack,7,25,175
+2025-09-10,West,Desk lamp,19,40,760
+2025-09-10,West,Headphones,22,75,1650
+2025-09-10,West,Notebook,31,12,372
+2025-09-10,West,Office chair,31,120,3720
+2025-09-11,East,Desk lamp,10,40,400
+2025-09-11,North,Desk lamp,40,40,1600
+2025-09-11,North,Notebook,37,12,444
+2025-09-11,North,Notebook,36,12,432
+2025-09-12,West,Desk lamp,4,40,160
+2025-09-13,North,Backpack,37,25,925
+2025-09-13,North,Desk lamp,35,40,1400
+2025-09-14,East,Backpack,19,25,475
+2025-09-14,North,Notebook,7,12,84
+2025-09-14,South,Backpack,34,25,850
+2025-09-14,South,Desk lamp,14,40,560
+2025-09-15,North,Backpack,40,25,1000
+2025-09-15,North,Backpack,16,25,400
+2025-09-15,North,Headphones,10,75,750
+2025-09-15,South,Backpack,18,25,450
+2025-09-15,West,Backpack,32,25,800
+2025-09-15,West,Desk lamp,11,40,440
+2025-09-15,West,Headphones,4,75,300
+2025-09-16,East,Backpack,34,25,850
+2025-09-16,East,Notebook,39,12,468
+2025-09-16,North,Desk lamp,28,40,1120
+2025-09-16,North,Desk lamp,25,40,1000
+2025-09-16,North,Desk lamp,6,40,240
+2025-09-16,North,Headphones,18,75,1350
+2025-09-16,South,Backpack,22,25,550
+2025-09-16,West,Office chair,38,120,4560
+2025-09-17,East,Backpack,36,25,900
+2025-09-17,East,Notebook,10,12,120
+2025-09-17,East,Office chair,8,120,960
+2025-09-17,South,Desk lamp,38,40,1520
+2025-09-17,South,Notebook,4,12,48
+2025-09-17,West,Backpack,6,25,150
+2025-09-17,West,Notebook,34,12,408
+2025-09-18,East,Headphones,28,75,2100
+2025-09-18,South,Backpack,29,25,725
+2025-09-18,South,Headphones,18,75,1350
+2025-09-18,South,Notebook,38,12,456
+2025-09-18,South,Office chair,21,120,2520
+2025-09-18,West,Backpack,23,25,575
+2025-09-18,West,Headphones,28,75,2100
+2025-09-19,East,Desk lamp,28,40,1120
+2025-09-19,North,Desk lamp,23,40,920
+2025-09-20,East,Backpack,21,25,525
+2025-09-20,East,Office chair,27,120,3240
+2025-09-20,South,Notebook,19,12,228
+2025-09-20,South,Office chair,14,120,1680
+2025-09-20,West,Backpack,28,25,700
+2025-09-20,West,Notebook,13,12,156
+2025-09-20,West,Notebook,33,12,396
+2025-09-21,North,Backpack,14,25,350
+2025-09-21,North,Desk lamp,2,40,80
+2025-09-21,North,Notebook,24,12,288
+2025-09-21,South,Backpack,17,25,425
+2025-09-21,West,Headphones,26,75,1950
+2025-09-21,West,Office chair,11,120,1320
+2025-09-22,East,Desk lamp,7,40,280
+2025-09-22,East,Office chair,5,120,600
+2025-09-22,North,Backpack,12,25,300
+2025-09-22,North,Backpack,12,25,300
+2025-09-22,North,Office chair,9,120,1080
+2025-09-22,South,Backpack,4,25,100
+2025-09-22,South,Desk lamp,12,40,480
+2025-09-22,South,Desk lamp,12,40,480
+2025-09-22,South,Headphones,21,75,1575
+2025-09-22,West,Backpack,30,25,750
+2025-09-23,East,Backpack,23,25,575
+2025-09-23,East,Headphones,30,75,2250
+2025-09-23,North,Headphones,7,75,525
+2025-09-23,North,Office chair,31,120,3720
+2025-09-23,West,Backpack,36,25,900
+2025-09-23,West,Headphones,13,75,975
+2025-09-23,West,Office chair,33,120,3960
+2025-09-24,East,Backpack,13,25,325
+2025-09-24,North,Desk lamp,24,40,960
+2025-09-24,South,Headphones,32,75,2400
+2025-09-24,South,Office chair,39,120,4680
+2025-09-24,West,Backpack,30,25,750
+2025-09-24,West,Desk lamp,3,40,120
+2025-09-24,West,Desk lamp,2,40,80
+2025-09-25,East,Backpack,22,25,550
+2025-09-25,East,Notebook,39,12,468
+2025-09-25,East,Office chair,14,120,1680
+2025-09-25,North,Backpack,30,25,750
+2025-09-25,North,Headphones,27,75,2025
+2025-09-25,West,Backpack,3,25,75
+2025-09-25,West,Desk lamp,40,40,1600
+2025-09-25,West,Office chair,38,120,4560
+2025-09-26,East,Desk lamp,22,40,880
+2025-09-26,East,Notebook,3,12,36
+2025-09-26,East,Notebook,10,12,120
+2025-09-26,East,Office chair,1,120,120
+2025-09-26,North,Backpack,17,25,425
+2025-09-26,North,Desk lamp,3,40,120
+2025-09-26,North,Notebook,24,12,288
+2025-09-26,South,Office chair,30,120,3600
+2025-09-26,West,Office chair,28,120,3360
+2025-09-27,East,Backpack,23,25,575
+2025-09-27,North,Backpack,15,25,375
+2025-09-27,North,Notebook,5,12,60
+2025-09-27,South,Headphones,13,75,975
+2025-09-27,South,Headphones,32,75,2400
+2025-09-27,West,Headphones,7,75,525
+2025-09-28,East,Desk lamp,35,40,1400
+2025-09-28,North,Headphones,8,75,600
+2025-09-28,South,Headphones,11,75,825
+2025-09-29,East,Desk lamp,7,40,280
+2025-09-29,East,Office chair,15,120,1800
+2025-09-29,South,Headphones,13,75,975
+2025-09-29,West,Desk lamp,10,40,400
+2025-09-29,West,Office chair,31,120,3720
+2025-09-30,North,Backpack,4,25,100
+2025-09-30,North,Desk lamp,11,40,440
+2025-09-30,South,Headphones,10,75,750
+2025-09-30,West,Desk lamp,35,40,1400
+2025-09-30,West,Notebook,27,12,324
+2025-10-01,East,Notebook,6,12,72
+2025-10-01,East,Office chair,35,120,4200
+2025-10-01,North,Notebook,14,12,168
+2025-10-01,West,Headphones,22,75,1650
+2025-10-02,East,Headphones,24,75,1800
+2025-10-02,North,Backpack,2,25,50
+2025-10-02,North,Desk lamp,19,40,760
+2025-10-02,North,Office chair,23,120,2760
+2025-10-02,West,Headphones,7,75,525
+2025-10-02,West,Office chair,16,120,1920
+2025-10-03,East,Desk lamp,40,40,1600
+2025-10-03,East,Notebook,30,12,360
+2025-10-03,South,Notebook,24,12,288
+2025-10-03,West,Desk lamp,30,40,1200
+2025-10-04,East,Office chair,16,120,1920
+2025-10-04,North,Backpack,3,25,75
+2025-10-04,West,Backpack,6,25,150
+2025-10-04,West,Headphones,26,75,1950
+2025-10-04,West,Headphones,26,75,1950
+2025-10-05,North,Backpack,18,25,450
+2025-10-05,North,Backpack,17,25,425
+2025-10-05,South,Office chair,27,120,3240
+2025-10-05,West,Desk lamp,35,40,1400
+2025-10-05,West,Headphones,16,75,1200
+2025-10-05,West,Office chair,40,120,4800
+2025-10-05,West,Office chair,5,120,600
+2025-10-06,East,Notebook,11,12,132
+2025-10-06,North,Headphones,31,75,2325
+2025-10-06,North,Notebook,4,12,48
+2025-10-06,South,Backpack,21,25,525
+2025-10-07,East,Desk lamp,29,40,1160
+2025-10-07,East,Office chair,12,120,1440
+2025-10-07,East,Office chair,25,120,3000
+2025-10-07,North,Headphones,5,75,375
+2025-10-07,South,Backpack,11,25,275
+2025-10-07,South,Office chair,25,120,3000
+2025-10-07,West,Backpack,39,25,975
+2025-10-07,West,Headphones,37,75,2775
+2025-10-07,West,Headphones,34,75,2550
+2025-10-07,West,Notebook,36,12,432
+2025-10-07,West,Office chair,35,120,4200
+2025-10-08,East,Backpack,10,25,250
+2025-10-08,North,Desk lamp,8,40,320
+2025-10-08,North,Office chair,2,120,240
+2025-10-08,South,Desk lamp,16,40,640
+2025-10-08,South,Headphones,11,75,825
+2025-10-08,South,Notebook,31,12,372
+2025-10-08,South,Office chair,38,120,4560
+2025-10-08,West,Office chair,19,120,2280
+2025-10-09,East,Desk lamp,12,40,480
+2025-10-09,East,Notebook,4,12,48
+2025-10-09,North,Backpack,36,25,900
+2025-10-09,North,Desk lamp,7,40,280
+2025-10-09,North,Headphones,29,75,2175
+2025-10-09,South,Office chair,39,120,4680
+2025-10-10,North,Desk lamp,37,40,1480
+2025-10-10,North,Office chair,25,120,3000
+2025-10-10,South,Backpack,15,25,375
+2025-10-10,West,Backpack,1,25,25
+2025-10-11,East,Notebook,23,12,276
+2025-10-11,East,Office chair,20,120,2400
+2025-10-11,North,Office chair,20,120,2400
+2025-10-11,South,Backpack,30,25,750
+2025-10-11,South,Office chair,5,120,600
+2025-10-11,South,Office chair,39,120,4680
+2025-10-12,East,Notebook,22,12,264
+2025-10-12,East,Office chair,4,120,480
+2025-10-12,North,Backpack,15,25,375
+2025-10-12,North,Notebook,26,12,312
+2025-10-12,West,Backpack,33,25,825
+2025-10-13,East,Backpack,16,25,400
+2025-10-13,East,Backpack,11,25,275
+2025-10-13,East,Desk lamp,20,40,800
+2025-10-13,North,Notebook,6,12,72
+2025-10-13,South,Backpack,27,25,675
+2025-10-13,South,Desk lamp,12,40,480
+2025-10-13,South,Office chair,36,120,4320
+2025-10-13,West,Headphones,13,75,975
+2025-10-14,East,Backpack,29,25,725
+2025-10-14,North,Headphones,13,75,975
+2025-10-15,West,Backpack,13,25,325
+2025-10-15,West,Notebook,8,12,96
+2025-10-15,West,Notebook,31,12,372
+2025-10-16,East,Headphones,34,75,2550
+2025-10-16,East,Notebook,28,12,336
+2025-10-16,North,Desk lamp,25,40,1000
+2025-10-16,North,Notebook,21,12,252
+2025-10-16,North,Office chair,33,120,3960
+2025-10-16,South,Notebook,38,12,456
+2025-10-17,East,Headphones,9,75,675
+2025-10-17,North,Desk lamp,38,40,1520
+2025-10-17,North,Office chair,7,120,840
+2025-10-17,South,Office chair,26,120,3120
+2025-10-17,West,Office chair,33,120,3960
+2025-10-18,North,Desk lamp,4,40,160
+2025-10-18,North,Headphones,12,75,900
+2025-10-18,South,Backpack,15,25,375
+2025-10-18,West,Notebook,14,12,168
+2025-10-18,West,Notebook,21,12,252
+2025-10-19,East,Notebook,40,12,480
+2025-10-19,East,Office chair,40,120,4800
+2025-10-19,North,Desk lamp,18,40,720
+2025-10-19,North,Notebook,37,12,444
+2025-10-19,North,Office chair,31,120,3720
+2025-10-19,South,Backpack,14,25,350
+2025-10-19,South,Desk lamp,37,40,1480
+2025-10-19,West,Office chair,9,120,1080
+2025-10-20,East,Notebook,26,12,312
+2025-10-20,North,Desk lamp,14,40,560
+2025-10-20,North,Notebook,33,12,396
+2025-10-20,North,Office chair,38,120,4560
+2025-10-20,South,Desk lamp,40,40,1600
+2025-10-20,South,Office chair,12,120,1440
+2025-10-20,South,Office chair,26,120,3120
+2025-10-20,West,Headphones,7,75,525
+2025-10-21,East,Notebook,32,12,384
+2025-10-21,East,Notebook,5,12,60
+2025-10-21,South,Headphones,27,75,2025
+2025-10-21,West,Desk lamp,22,40,880
+2025-10-22,East,Office chair,4,120,480
+2025-10-22,West,Headphones,25,75,1875
+2025-10-22,West,Notebook,21,12,252
+2025-10-23,East,Backpack,13,25,325
+2025-10-23,East,Backpack,13,25,325
+2025-10-23,East,Desk lamp,7,40,280
+2025-10-23,North,Notebook,16,12,192
+2025-10-23,South,Headphones,3,75,225
+2025-10-23,West,Notebook,33,12,396
+2025-10-23,West,Notebook,12,12,144
+2025-10-24,East,Backpack,37,25,925
+2025-10-24,East,Backpack,32,25,800
+2025-10-24,East,Headphones,14,75,1050
+2025-10-24,East,Notebook,35,12,420
+2025-10-24,East,Office chair,19,120,2280
+2025-10-24,North,Office chair,23,120,2760
+2025-10-24,South,Backpack,9,25,225
+2025-10-24,South,Desk lamp,7,40,280
+2025-10-24,South,Office chair,2,120,240
+2025-10-24,West,Notebook,1,12,12
+2025-10-25,East,Headphones,8,75,600
+2025-10-25,East,Headphones,30,75,2250
+2025-10-25,East,Headphones,29,75,2175
+2025-10-25,North,Headphones,8,75,600
+2025-10-25,South,Desk lamp,5,40,200
+2025-10-26,North,Backpack,13,25,325
+2025-10-26,South,Backpack,13,25,325
+2025-10-26,South,Office chair,11,120,1320
+2025-10-27,North,Backpack,17,25,425
+2025-10-27,North,Headphones,5,75,375
+2025-10-27,North,Headphones,20,75,1500
+2025-10-27,West,Headphones,15,75,1125
+2025-10-27,West,Office chair,4,120,480
+2025-10-28,East,Backpack,5,25,125
+2025-10-28,North,Backpack,14,25,350
+2025-10-29,East,Desk lamp,14,40,560
+2025-10-29,East,Headphones,13,75,975
+2025-10-29,North,Backpack,24,25,600
+2025-10-29,North,Desk lamp,20,40,800
+2025-10-29,South,Backpack,25,25,625
+2025-10-29,West,Backpack,35,25,875
+2025-10-29,West,Backpack,29,25,725
+2025-10-30,North,Office chair,14,120,1680
+2025-10-30,South,Backpack,19,25,475
+2025-10-30,South,Office chair,8,120,960
+2025-10-30,West,Backpack,2,25,50
+2025-10-31,East,Office chair,16,120,1920
+2025-10-31,South,Backpack,28,25,700
+2025-10-31,West,Headphones,17,75,1275
+2025-10-31,West,Headphones,2,75,150
+2025-10-31,West,Notebook,24,12,288
+2025-10-31,West,Office chair,24,120,2880
+2025-11-01,East,Backpack,35,25,875
+2025-11-01,North,Notebook,32,12,384
+2025-11-01,South,Desk lamp,30,40,1200
+2025-11-01,South,Notebook,38,12,456
+2025-11-01,South,Office chair,25,120,3000
+2025-11-01,West,Headphones,8,75,600
+2025-11-02,North,Office chair,10,120,1200
+2025-11-02,West,Headphones,38,75,2850
+2025-11-02,West,Headphones,13,75,975
+2025-11-03,East,Desk lamp,36,40,1440
+2025-11-03,East,Notebook,6,12,72
+2025-11-03,South,Notebook,3,12,36
+2025-11-03,South,Notebook,24,12,288
+2025-11-03,West,Backpack,27,25,675
+2025-11-03,West,Backpack,4,25,100
+2025-11-03,West,Office chair,21,120,2520
+2025-11-04,North,Backpack,21,25,525
+2025-11-04,South,Office chair,27,120,3240
+2025-11-04,West,Notebook,23,12,276
+2025-11-04,West,Office chair,1,120,120
+2025-11-05,East,Notebook,36,12,432
+2025-11-05,East,Notebook,39,12,468
+2025-11-05,West,Desk lamp,8,40,320
+2025-11-06,East,Notebook,34,12,408
+2025-11-06,East,Office chair,39,120,4680
+2025-11-06,North,Notebook,9,12,108
+2025-11-06,West,Headphones,2,75,150
+2025-11-06,West,Office chair,30,120,3600
+2025-11-06,West,Office chair,26,120,3120
+2025-11-07,East,Headphones,14,75,1050
+2025-11-07,East,Notebook,33,12,396
+2025-11-07,South,Desk lamp,4,40,160
+2025-11-07,South,Headphones,34,75,2550
+2025-11-08,East,Backpack,4,25,100
+2025-11-08,East,Headphones,3,75,225
+2025-11-08,North,Backpack,31,25,775
+2025-11-08,South,Notebook,22,12,264
+2025-11-08,West,Desk lamp,4,40,160
+2025-11-08,West,Headphones,18,75,1350
+2025-11-09,East,Notebook,9,12,108
+2025-11-09,North,Headphones,3,75,225
+2025-11-09,North,Office chair,34,120,4080
+2025-11-09,South,Headphones,35,75,2625
+2025-11-09,West,Backpack,21,25,525
+2025-11-09,West,Desk lamp,1,40,40
+2025-11-10,East,Headphones,26,75,1950
+2025-11-10,East,Notebook,40,12,480
+2025-11-10,North,Office chair,14,120,1680
+2025-11-10,North,Office chair,31,120,3720
+2025-11-10,South,Backpack,21,25,525
+2025-11-10,West,Headphones,16,75,1200
+2025-11-10,West,Notebook,18,12,216
+2025-11-11,North,Notebook,28,12,336
+2025-11-11,North,Notebook,36,12,432
+2025-11-11,West,Backpack,16,25,400
+2025-11-12,East,Backpack,4,25,100
+2025-11-12,North,Backpack,17,25,425
+2025-11-12,South,Backpack,7,25,175
+2025-11-12,South,Backpack,28,25,700
+2025-11-12,West,Office chair,26,120,3120
+2025-11-13,East,Backpack,36,25,900
+2025-11-13,East,Headphones,23,75,1725
+2025-11-13,East,Notebook,4,12,48
+2025-11-13,North,Desk lamp,21,40,840
+2025-11-13,North,Headphones,23,75,1725
+2025-11-13,North,Notebook,37,12,444
+2025-11-13,North,Notebook,24,12,288
+2025-11-13,North,Office chair,11,120,1320
+2025-11-13,West,Backpack,21,25,525
+2025-11-13,West,Desk lamp,12,40,480
+2025-11-13,West,Headphones,24,75,1800
+2025-11-14,East,Notebook,15,12,180
+2025-11-14,North,Backpack,1,25,25
+2025-11-14,North,Notebook,6,12,72
+2025-11-14,South,Notebook,26,12,312
+2025-11-14,West,Desk lamp,37,40,1480
+2025-11-14,West,Desk lamp,21,40,840
+2025-11-14,West,Office chair,13,120,1560
+2025-11-15,East,Desk lamp,12,40,480
+2025-11-15,West,Desk lamp,23,40,920
+2025-11-15,West,Headphones,5,75,375
+2025-11-15,West,Office chair,14,120,1680
+2025-11-16,North,Notebook,19,12,228
+2025-11-16,North,Office chair,37,120,4440
+2025-11-16,North,Office chair,2,120,240
+2025-11-16,South,Desk lamp,40,40,1600
+2025-11-16,West,Office chair,10,120,1200
+2025-11-16,West,Office chair,8,120,960
+2025-11-16,West,Office chair,19,120,2280
+2025-11-17,East,Headphones,19,75,1425
+2025-11-17,South,Office chair,36,120,4320
+2025-11-18,East,Notebook,2,12,24
+2025-11-18,North,Notebook,3,12,36
+2025-11-18,South,Office chair,32,120,3840
+2025-11-18,West,Notebook,33,12,396
+2025-11-19,East,Backpack,36,25,900
+2025-11-19,East,Desk lamp,31,40,1240
+2025-11-19,East,Notebook,17,12,204
+2025-11-19,West,Backpack,17,25,425
+2025-11-19,West,Desk lamp,4,40,160
+2025-11-20,East,Office chair,11,120,1320
+2025-11-20,South,Desk lamp,17,40,680
+2025-11-20,South,Office chair,3,120,360
+2025-11-20,West,Backpack,36,25,900
+2025-11-20,West,Backpack,29,25,725
+2025-11-20,West,Desk lamp,10,40,400
+2025-11-21,East,Backpack,9,25,225
+2025-11-21,East,Desk lamp,39,40,1560
+2025-11-21,North,Office chair,14,120,1680
+2025-11-21,South,Headphones,27,75,2025
+2025-11-21,South,Notebook,35,12,420
+2025-11-21,South,Office chair,19,120,2280
+2025-11-21,West,Backpack,16,25,400
+2025-11-21,West,Headphones,16,75,1200
+2025-11-22,North,Headphones,27,75,2025
+2025-11-22,North,Notebook,14,12,168
+2025-11-22,South,Backpack,30,25,750
+2025-11-22,South,Office chair,24,120,2880
+2025-11-22,West,Notebook,1,12,12
+2025-11-23,East,Headphones,37,75,2775
+2025-11-23,East,Headphones,40,75,3000
+2025-11-23,East,Office chair,17,120,2040
+2025-11-23,East,Office chair,6,120,720
+2025-11-23,North,Office chair,1,120,120
+2025-11-23,South,Desk lamp,19,40,760
+2025-11-24,East,Office chair,12,120,1440
+2025-11-24,North,Backpack,37,25,925
+2025-11-24,North,Notebook,19,12,228
+2025-11-24,South,Headphones,16,75,1200
+2025-11-24,West,Backpack,11,25,275
+2025-11-25,East,Backpack,25,25,625
+2025-11-25,North,Headphones,32,75,2400
+2025-11-25,North,Notebook,33,12,396
+2025-11-25,South,Headphones,33,75,2475
+2025-11-25,South,Headphones,33,75,2475
+2025-11-25,South,Notebook,32,12,384
+2025-11-25,West,Desk lamp,2,40,80
+2025-11-25,West,Headphones,8,75,600
+2025-11-26,East,Office chair,12,120,1440
+2025-11-26,North,Desk lamp,29,40,1160
+2025-11-26,North,Headphones,22,75,1650
+2025-11-26,West,Headphones,26,75,1950
+2025-11-27,East,Desk lamp,7,40,280
+2025-11-27,South,Backpack,5,25,125
+2025-11-27,South,Desk lamp,38,40,1520
+2025-11-27,South,Office chair,40,120,4800
+2025-11-27,West,Backpack,37,25,925
+2025-11-27,West,Office chair,24,120,2880
+2025-11-28,East,Notebook,12,12,144
+2025-11-28,North,Backpack,24,25,600
+2025-11-28,North,Office chair,37,120,4440
+2025-11-28,West,Backpack,18,25,450
+2025-11-29,East,Backpack,12,25,300
+2025-11-29,East,Backpack,29,25,725
+2025-11-29,East,Desk lamp,38,40,1520
+2025-11-29,North,Notebook,35,12,420
+2025-11-29,South,Desk lamp,29,40,1160
+2025-11-29,South,Notebook,29,12,348
+2025-11-29,West,Headphones,14,75,1050
+2025-11-29,West,Headphones,4,75,300
+2025-11-30,North,Desk lamp,30,40,1200
+2025-11-30,North,Headphones,4,75,300
+2025-11-30,West,Desk lamp,29,40,1160
+2025-11-30,West,Office chair,34,120,4080
+2025-12-01,East,Backpack,26,25,650
+2025-12-01,East,Backpack,40,25,1000
+2025-12-02,East,Backpack,39,25,975
+2025-12-02,East,Desk lamp,36,40,1440
+2025-12-02,North,Headphones,39,75,2925
+2025-12-02,South,Desk lamp,3,40,120
+2025-12-02,South,Desk lamp,3,40,120
+2025-12-03,West,Desk lamp,33,40,1320
+2025-12-04,East,Desk lamp,23,40,920
+2025-12-04,East,Desk lamp,18,40,720
+2025-12-04,East,Notebook,5,12,60
+2025-12-04,North,Desk lamp,9,40,360
+2025-12-04,South,Headphones,13,75,975
+2025-12-04,South,Office chair,7,120,840
+2025-12-04,West,Notebook,28,12,336
+2025-12-04,West,Office chair,35,120,4200
+2025-12-04,West,Office chair,20,120,2400
+2025-12-05,North,Desk lamp,17,40,680
+2025-12-05,North,Desk lamp,16,40,640
+2025-12-05,South,Backpack,27,25,675
+2025-12-05,South,Desk lamp,21,40,840
+2025-12-05,West,Backpack,25,25,625
+2025-12-05,West,Headphones,20,75,1500
+2025-12-05,West,Office chair,40,120,4800
+2025-12-06,South,Backpack,38,25,950
+2025-12-06,South,Headphones,30,75,2250
+2025-12-06,South,Notebook,5,12,60
+2025-12-07,North,Headphones,30,75,2250
+2025-12-07,South,Backpack,24,25,600
+2025-12-07,West,Desk lamp,21,40,840
+2025-12-07,West,Headphones,17,75,1275
+2025-12-07,West,Office chair,1,120,120
+2025-12-08,East,Desk lamp,28,40,1120
+2025-12-08,North,Headphones,6,75,450
+2025-12-08,South,Notebook,38,12,456
+2025-12-09,East,Notebook,29,12,348
+2025-12-09,North,Backpack,16,25,400
+2025-12-09,North,Headphones,13,75,975
+2025-12-09,North,Office chair,2,120,240
+2025-12-09,South,Notebook,39,12,468
+2025-12-09,South,Notebook,30,12,360
+2025-12-09,West,Backpack,36,25,900
+2025-12-09,West,Notebook,3,12,36
+2025-12-10,East,Backpack,2,25,50
+2025-12-10,East,Desk lamp,2,40,80
+2025-12-10,East,Notebook,2,12,24
+2025-12-10,East,Office chair,1,120,120
+2025-12-10,North,Office chair,16,120,1920
+2025-12-10,South,Backpack,26,25,650
+2025-12-10,West,Notebook,18,12,216
+2025-12-10,West,Office chair,13,120,1560
+2025-12-11,East,Backpack,10,25,250
+2025-12-11,South,Desk lamp,10,40,400
+2025-12-11,South,Headphones,12,75,900
+2025-12-11,South,Office chair,14,120,1680
+2025-12-12,East,Office chair,36,120,4320
+2025-12-12,North,Office chair,32,120,3840
+2025-12-12,North,Office chair,36,120,4320
+2025-12-12,South,Desk lamp,7,40,280
+2025-12-12,West,Office chair,24,120,2880
+2025-12-13,East,Headphones,35,75,2625
+2025-12-13,East,Headphones,34,75,2550
+2025-12-13,North,Notebook,37,12,444
+2025-12-13,North,Office chair,2,120,240
+2025-12-13,West,Desk lamp,14,40,560
+2025-12-13,West,Desk lamp,12,40,480
+2025-12-14,East,Backpack,11,25,275
+2025-12-14,East,Office chair,14,120,1680
+2025-12-14,North,Notebook,40,12,480
+2025-12-14,South,Notebook,21,12,252
+2025-12-14,West,Notebook,9,12,108
+2025-12-15,East,Desk lamp,38,40,1520
+2025-12-15,East,Desk lamp,28,40,1120
+2025-12-15,East,Headphones,1,75,75
+2025-12-15,East,Headphones,33,75,2475
+2025-12-15,North,Backpack,21,25,525
+2025-12-15,South,Desk lamp,17,40,680
+2025-12-15,South,Headphones,21,75,1575
+2025-12-15,West,Office chair,38,120,4560
+2025-12-16,East,Desk lamp,8,40,320
+2025-12-16,East,Desk lamp,26,40,1040
+2025-12-16,North,Backpack,29,25,725
+2025-12-16,North,Notebook,36,12,432
+2025-12-16,North,Notebook,12,12,144
+2025-12-16,North,Office chair,5,120,600
+2025-12-16,West,Headphones,14,75,1050
+2025-12-17,East,Desk lamp,11,40,440
+2025-12-17,North,Desk lamp,19,40,760
+2025-12-17,South,Desk lamp,13,40,520
+2025-12-17,South,Headphones,9,75,675
+2025-12-17,South,Notebook,23,12,276
+2025-12-17,West,Office chair,39,120,4680
+2025-12-18,East,Office chair,24,120,2880
+2025-12-18,North,Headphones,15,75,1125
+2025-12-18,North,Notebook,27,12,324
+2025-12-18,South,Desk lamp,17,40,680
+2025-12-18,South,Desk lamp,25,40,1000
+2025-12-18,South,Headphones,27,75,2025
+2025-12-18,West,Desk lamp,9,40,360
+2025-12-18,West,Desk lamp,11,40,440
+2025-12-19,East,Backpack,15,25,375
+2025-12-19,East,Office chair,30,120,3600
+2025-12-19,North,Backpack,20,25,500
+2025-12-19,North,Headphones,22,75,1650
+2025-12-19,South,Office chair,14,120,1680
+2025-12-20,North,Office chair,29,120,3480
+2025-12-20,West,Headphones,38,75,2850
+2025-12-20,West,Notebook,26,12,312
+2025-12-20,West,Office chair,22,120,2640
+2025-12-21,North,Desk lamp,6,40,240
+2025-12-21,North,Desk lamp,30,40,1200
+2025-12-21,South,Desk lamp,39,40,1560
+2025-12-21,South,Headphones,38,75,2850
+2025-12-21,West,Notebook,21,12,252
+2025-12-22,East,Backpack,14,25,350
+2025-12-22,East,Headphones,26,75,1950
+2025-12-22,South,Headphones,25,75,1875
+2025-12-22,West,Notebook,32,12,384
+2025-12-23,North,Backpack,18,25,450
+2025-12-23,North,Headphones,7,75,525
+2025-12-23,West,Headphones,32,75,2400
+2025-12-23,West,Headphones,25,75,1875
+2025-12-23,West,Notebook,10,12,120
+2025-12-23,West,Notebook,27,12,324
+2025-12-24,East,Backpack,33,25,825
+2025-12-24,East,Office chair,15,120,1800
+2025-12-24,North,Backpack,21,25,525
+2025-12-24,North,Notebook,34,12,408
+2025-12-25,East,Backpack,36,25,900
+2025-12-25,East,Desk lamp,14,40,560
+2025-12-25,East,Office chair,4,120,480
+2025-12-25,North,Notebook,22,12,264
+2025-12-25,South,Backpack,6,25,150
+2025-12-25,South,Backpack,29,25,725
+2025-12-25,South,Backpack,24,25,600
+2025-12-25,South,Notebook,32,12,384
+2025-12-25,South,Office chair,13,120,1560
+2025-12-26,East,Office chair,22,120,2640
+2025-12-26,South,Desk lamp,24,40,960
+2025-12-26,South,Desk lamp,4,40,160
+2025-12-26,West,Backpack,35,25,875
+2025-12-26,West,Headphones,39,75,2925
+2025-12-27,East,Headphones,36,75,2700
+2025-12-27,East,Office chair,27,120,3240
+2025-12-27,North,Notebook,35,12,420
+2025-12-27,South,Backpack,10,25,250
+2025-12-27,South,Headphones,27,75,2025
+2025-12-27,South,Office chair,38,120,4560
+2025-12-27,West,Desk lamp,23,40,920
+2025-12-28,North,Notebook,19,12,228
+2025-12-28,West,Notebook,18,12,216
+2025-12-29,East,Backpack,24,25,600
+2025-12-29,East,Office chair,19,120,2280
+2025-12-29,East,Office chair,20,120,2400
+2025-12-29,North,Headphones,25,75,1875
+2025-12-29,North,Office chair,13,120,1560
+2025-12-29,South,Backpack,25,25,625
+2025-12-29,West,Headphones,5,75,375
+2025-12-29,West,Office chair,27,120,3240
+2025-12-30,East,Backpack,38,25,950
+2025-12-30,North,Desk lamp,7,40,280
+2025-12-30,North,Headphones,19,75,1425
+2025-12-30,North,Headphones,3,75,225
+2025-12-30,South,Desk lamp,14,40,560
+2025-12-30,South,Desk lamp,3,40,120
+2025-12-30,West,Backpack,32,25,800
+2025-12-30,West,Headphones,5,75,375
+2025-12-31,East,Office chair,1,120,120
+2025-12-31,North,Headphones,11,75,825
+2025-12-31,South,Headphones,27,75,2025
+2025-12-31,South,Office chair,10,120,1200
+2025-12-31,West,Desk lamp,20,40,800
+2025-12-31,West,Headphones,19,75,1425

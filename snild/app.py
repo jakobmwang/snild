@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import logging
 import mimetypes
 import posixpath
+import re
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -25,15 +27,16 @@ from .config import Config
 from .providers import build_providers
 from .providers.base import Provider
 from .runs import RunManager
-from .security import SecurityMiddleware
+from .security import SecurityMiddleware, frame_csp
 from .settings import Settings
 from .store import Store
 from .titles import TitleService
 from .tools import ToolContract
 
 log = logging.getLogger("snild")
-for _type, _ext in (("text/javascript", ".js"), ("text/css", ".css")):
-    mimetypes.add_type(_type, _ext)  # module scripts need these exact types; never trust the OS
+for _type, _ext in (("text/javascript", ".js"), ("text/javascript", ".mjs"), ("application/wasm", ".wasm"),
+                    ("text/css", ".css")):
+    mimetypes.add_type(_type, _ext)  # module scripts and WebAssembly need these exact types; never trust the OS
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 SYSTEM_PROMPT = Path(__file__).with_name("system_prompt.md")
 
@@ -41,15 +44,43 @@ SYSTEM_PROMPT = Path(__file__).with_name("system_prompt.md")
 PAGE = "index.html"
 
 
+FRAME_PAGES = {"frames/code.html": "code", "frames/duckdb.html": "duckdb"}
+INLINE_SCRIPT = re.compile(r'<script(?: type="importmap")?>(.*?)</script>', re.S)  # not <script src=...>
+
+
 class VersionedAssets(StaticFiles):
-    """Files under /assets/<content version>/: the path changes whenever a byte does, so they cache forever."""
+    """Files under /assets/<content version>/: the path changes whenever a byte does, so they are cached
+    for a year as immutable.
+
+    The locked tool frames have an opaque origin, so to them snild is another site: their pages carry their own
+    policy, and only the libraries and the database frame's scripts may be loaded from there (CORS and CORP opened
+    for exactly those files)."""
+
+    def __init__(self, directory: Path, prefix: str):
+        super().__init__(directory=directory)
+        self.prefix = prefix
+        # Each frame page's inline scripts are allowed by their digests, so its policy needs no 'unsafe-inline'.
+        self.hashes = {
+            page: [base64.b64encode(hashlib.sha256(body.encode()).digest()).decode()
+                   for body in INLINE_SCRIPT.findall((directory / page).read_text("utf-8"))]
+            for page in FRAME_PAGES if (directory / page).is_file()
+        }
 
     async def get_response(self, path: str, scope: Scope):  # type: ignore[override]
-        if posixpath.normpath(path) == PAGE:  # the page is served at /, filled in; never as a raw asset
+        path = posixpath.normpath(path)
+        if path == PAGE:  # the page is served at /, filled in; never as a raw asset
             raise HTTPException(404)
         response = await super().get_response(path, scope)
-        if response.status_code == 200:
-            response.headers["cache-control"] = "public, max-age=31536000, immutable"
+        if response.status_code != 200:
+            return response
+        response.headers["cache-control"] = "public, max-age=31536000, immutable"
+        if path.startswith("vendor/") or (path.startswith("frames/") and path.endswith(".js")):
+            response.headers["access-control-allow-origin"] = "*"
+            response.headers["cross-origin-resource-policy"] = "cross-origin"
+        kind = FRAME_PAGES.get(path)
+        if kind:
+            base = f"{scope.get('snild_origin', '')}{self.prefix}"
+            response.headers["content-security-policy"] = frame_csp(kind, base, self.hashes.get(path, []))
         return response
 
 
@@ -99,7 +130,9 @@ def create_app(config: Config, providers: dict[str, Provider] | None = None, web
 
     app = FastAPI(title="snild", version=api.__version__, lifespan=lifespan, docs_url=None, redoc_url=None,
                   openapi_url=None)
-    app.add_middleware(SecurityMiddleware, public_url=config.public_url)
+    version = asset_version(web_dir)
+    frames = tuple(f"/assets/{version}/{page}" for page in FRAME_PAGES)
+    app.add_middleware(SecurityMiddleware, public_url=config.public_url, frames=frames)
     app.include_router(api.router)
 
     @app.exception_handler(api.ApiError)
@@ -116,13 +149,15 @@ def create_app(config: Config, providers: dict[str, Provider] | None = None, web
         code = {404: "not_found", 405: "method_not_allowed"}.get(exc.status_code, "http_error")
         return api.ApiError(exc.status_code, code, str(exc.detail)).response()
 
-    version = asset_version(web_dir)
-    app.mount(f"/assets/{version}", VersionedAssets(directory=web_dir), name="assets")
+    app.mount(f"/assets/{version}", VersionedAssets(web_dir, f"/assets/{version}"), name="assets")
     index = (web_dir / PAGE).read_text("utf-8").replace("{{ASSETS}}", f"/assets/{version}")
 
     # The page itself, at the addresses the page uses; anything else stays a 404.
     @app.get("/", include_in_schema=False)
     @app.get("/c/{chat_id}", include_in_schema=False)
+    @app.get("/admin", include_in_schema=False)
+    @app.get("/admin/people", include_in_schema=False)
+    @app.get("/admin/settings", include_in_schema=False)
     async def page() -> HTMLResponse:
         return HTMLResponse(index, headers={"cache-control": "no-cache"})
 

@@ -28,9 +28,9 @@ test("lines split across chunks are joined", async () => {
 });
 
 test("a multi-byte character split between chunks survives", async () => {
-  const bytes = new TextEncoder().encode('{"t":"æøå 🦆"}\n');
+  const bytes = new TextEncoder().encode('{"t":"naïve café 🦆"}\n');
   const cut = bytes.indexOf(0xf0) + 2; // inside the four bytes of the duck
-  assert.deepEqual(await collect(streamOf(bytes.slice(0, 5), bytes.slice(5, cut), bytes.slice(cut))), [{ t: "æøå 🦆" }]);
+  assert.deepEqual(await collect(streamOf(bytes.slice(0, 5), bytes.slice(5, cut), bytes.slice(cut))), [{ t: "naïve café 🦆" }]);
 });
 
 test("blank lines are ignored", async () => {

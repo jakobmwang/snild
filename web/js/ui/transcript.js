@@ -3,11 +3,17 @@
  * The conversation: saved messages, the reply being written, and what went wrong if something did.
  * Saved messages are drawn once and kept (keyed by id); the live reply is redrawn at most once per animation
  * frame, and less often when a long reply makes drawing it slow. The view follows the newest text only while
- * the reader is at the bottom: scrolling up to read stops it. Folded parts (reasoning, tool calls) that the
- * reader opened stay open while the reply is redrawn and after it is saved.
+ * the reader is at the bottom: scrolling up to read stops it, and a "Jump to latest" button appears. Folded
+ * parts (reasoning, tool calls) that the reader opened stay open while the reply is redrawn and after it is
+ * saved. Reasoning watched live says how long it took ("Thought for 3 s"); from history it just says "Thought".
+ *
+ * A tool call is a card that follows the call's real life in this browser: being written, waiting, running,
+ * done (with its time), failed or stopped. Its code and output are folded; a chart it returned is shown below
+ * the fold as an image (an SVG in an <img> runs no script and loads nothing), live and after a reload.
  */
 
-import { el } from "./dom.js";
+import { parseResult } from "../core/runjs.js";
+import { el, icon } from "./dom.js";
 import { renderMarkdown } from "./markdown-view.js";
 import { text } from "./strings.js";
 
@@ -39,6 +45,12 @@ export class TranscriptView {
     this.stick = true;
     /** Keys of the folded parts the reader has opened (see foldKey). @type {Set<string>} */
     this.opened = new Set();
+    /** Seconds of reasoning watched live, by the reply's place in the transcript. @type {Map<number, number>} */
+    this.thought = new Map();
+    this.thinkingSince = 0;
+    this.jump = el("button", { type: "button", class: "jump" }, icon("down"), el("span", {}, text.jumpToLatest));
+    this.jump.hidden = true;
+    this.jump.addEventListener("click", () => this.stickToBottom());
     this.element.addEventListener("toggle", (event) => {
       const details = /** @type {HTMLDetailsElement} */ (event.target);
       const key = details.dataset.fold;
@@ -46,9 +58,12 @@ export class TranscriptView {
       if (details.open) this.opened.add(key);
       else this.opened.delete(key);
     }, true); // toggle does not bubble: listen on the way down
+    // A chart gets its height once it has loaded: keep following the newest text.
+    this.element.addEventListener("load", () => this.#follow(), true);
     scroller.addEventListener("scroll", () => {
       const gap = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
       this.stick = gap < AT_BOTTOM_PX;
+      this.jump.hidden = this.stick;
     }, { passive: true });
   }
 
@@ -65,14 +80,17 @@ export class TranscriptView {
     this.#drawAll(state);
   }
 
-  /** Another chat is opened: what was unfolded in this one does not carry over. */
+  /** Another chat is opened: what was unfolded or timed in this one does not carry over. */
   forget() {
     this.opened.clear();
+    this.thought.clear();
+    this.thinkingSince = 0;
   }
 
-  /** Follow the newest text from now on (after sending). */
+  /** Follow the newest text from now on (after sending, or "Jump to latest"). */
   stickToBottom() {
     this.stick = true;
+    this.jump.hidden = true;
     this.#follow();
   }
 
@@ -91,7 +109,7 @@ export class TranscriptView {
     const nodes = state.messages.map((message, index) => {
       const key = keyOf(message);
       const cached = message.id ? this.saved.get(message.id) : undefined;
-      const node = cached && cached.key === key ? cached.node : messageNode(message, index, this.opened);
+      const node = cached && cached.key === key ? cached.node : messageNode(message, index, this.opened, this.thought);
       if (message.id) keep.set(message.id, { node, key });
       return node;
     });
@@ -104,6 +122,7 @@ export class TranscriptView {
       nodes.push(this.liveNode);
     } else {
       this.liveNode = null;
+      this.thinkingSince = 0; // no reply under way: a stopped one leaves no clock running for the next
     }
     this.element.replaceChildren(...nodes);
     this.#follow();
@@ -136,11 +155,30 @@ export class TranscriptView {
   #drawLive(live) {
     const key = keyOf(live);
     if (!this.liveNode || key === this.liveKey) return;
+    this.#time(live);
     const started = performance.now();
-    patch(this.liveNode, assistantParts(live, this.liveIndex, this.opened));
+    patch(this.liveNode, assistantParts(live, this.liveIndex, this.opened, this.thought));
     this.liveKey = key;
     this.lastDraw = performance.now();
     this.drawCost = this.lastDraw - started;
+  }
+
+  /**
+   * Time the reasoning while it streams: from its first words to the first words of the answer (or the end).
+   * @param {AssistantMessage} live
+   */
+  #time(live) {
+    if (this.thought.has(this.liveIndex) || !live.thinking) return;
+    const over = Boolean(live.text || live.tools.length || live.status !== "writing");
+    const now = performance.now();
+    if (!this.thinkingSince) {
+      if (!over) this.thinkingSince = now; // seen only once it was over: not timed ("Thought")
+      return;
+    }
+    if (over) {
+      this.thought.set(this.liveIndex, Math.max(1, Math.round((now - this.thinkingSince) / 1000)));
+      this.thinkingSince = 0;
+    }
   }
 
   #follow() {
@@ -200,7 +238,7 @@ function patch(host, parts) {
 /** @param {Message} message What decides whether a drawn message is still right. */
 function keyOf(message) {
   if (message.kind === "user") return `u${message.text.length}`;
-  const tools = message.tools.map((t) => `${t.id}:${t.preview.length}:${t.input ? 1 : 0}:${t.result ? 1 : 0}`).join(",");
+  const tools = message.tools.map((t) => `${t.id}:${t.preview.length}:${t.input ? 1 : 0}:${t.result ? 1 : 0}:${t.phase ?? ""}`).join(",");
   return `a${message.status}:${message.text.length}:${message.thinking.length}:${tools}`;
 }
 
@@ -208,14 +246,15 @@ function keyOf(message) {
  * @param {Message} message
  * @param {number} index its place in the transcript
  * @param {Set<string>} opened
+ * @param {Map<number, number>} thought
  */
-function messageNode(message, index, opened) {
+function messageNode(message, index, opened, thought) {
   if (message.kind === "user") {
     return el("article", { class: "message message-user" },
       el("h2", { class: "visually-hidden" }, text.you),
       el("div", { class: "bubble" }, message.text));
   }
-  return el("article", { class: "message message-assistant" }, ...assistantParts(message, index, opened));
+  return el("article", { class: "message message-assistant" }, ...assistantParts(message, index, opened, thought));
 }
 
 /**
@@ -232,19 +271,28 @@ function foldKey(kind, what) {
  * @param {AssistantMessage} message
  * @param {number} index
  * @param {Set<string>} opened
+ * @param {Map<number, number>} thought seconds of reasoning watched live, by index
  * @returns {HTMLElement[]}
  */
-function assistantParts(message, index, opened) {
+function assistantParts(message, index, opened, thought) {
   const writing = message.status === "writing";
   const parts = [el("h2", { class: "visually-hidden", "data-slot": "title" }, text.assistant)];
   if (message.thinking) {
     const fold = foldKey("thinking", index);
-    parts.push(el("details", { class: "thinking", "data-fold": fold, "data-slot": fold, open: opened.has(fold) },
-      el("summary", {}, writing && !message.text ? text.thinkingNow : text.thinking),
+    const still = writing && !message.text && !message.tools.length;
+    const seconds = thought.get(index);
+    const label = still ? text.thinkingNow : seconds ? text.thoughtFor(seconds) : text.thought;
+    parts.push(el("details", { class: `thinking${still ? " is-live" : ""}`, "data-fold": fold, "data-slot": fold,
+      open: opened.has(fold) },
+      el("summary", {}, label),
       el("div", { class: "thinking-text" }, message.thinking)));
   }
   if (message.text) parts.push(el("div", { class: "prose", "data-slot": "prose" }, renderMarkdown(message.text)));
-  for (const tool of message.tools) parts.push(toolNode(tool, writing, opened));
+  for (const tool of message.tools) parts.push(...toolParts(tool, index, writing, opened));
+  // The answer can be copied; a step that only says what it will do next (its tools follow) is not an answer.
+  if (message.text && !writing && !message.tools.length && globalThis.navigator?.clipboard?.writeText) {
+    parts.push(copyButton(message.text));
+  }
   if (writing && !message.text && !message.thinking && !message.tools.length) {
     parts.push(el("p", { class: "writing", "data-slot": "writing" }, el("span", { class: "dots", "aria-hidden": "true" }),
       el("span", { class: "visually-hidden" }, text.writing)));
@@ -254,19 +302,98 @@ function assistantParts(message, index, opened) {
 }
 
 /**
- * @param {ToolView} tool
- * @param {boolean} writing
- * @param {Set<string>} opened
+ * Copy the whole answer as its Markdown source; says "Copied" once the clipboard has it.
+ * @param {string} source
  */
-function toolNode(tool, writing, opened) {
-  const done = Boolean(tool.result) || !writing;
-  const shown = tool.input ? JSON.stringify(tool.input, null, 2) : tool.preview;
-  const fold = foldKey("tool", tool.id);
-  return el("details", { class: `tool${tool.result?.isError ? " tool-error" : ""}`, "data-fold": fold, "data-slot": fold,
-    open: opened.has(fold) },
-    el("summary", {}, done ? text.usedTool(tool.name) : text.usingTool(tool.name)),
-    shown ? el("pre", { class: "tool-input" }, shown) : null,
-    tool.result ? el("div", { class: "tool-result" },
-      tool.result.isError ? el("strong", {}, text.toolFailed, " ") : null,
-      tool.result.content) : null);
+function copyButton(source) {
+  const label = el("span", {}, text.copy);
+  const button = el("button", { type: "button", class: "answer-copy", "aria-label": text.copyAnswer }, icon("copy"), label);
+  button.addEventListener("click", () => {
+    navigator.clipboard.writeText(source).then(() => {
+      label.textContent = text.copied;
+      setTimeout(() => (label.textContent = text.copy), 1500);
+    }, () => {});
+  });
+  return el("div", { class: "answer-actions", "data-slot": "actions" }, button);
+}
+
+/**
+ * A tool call's card, and below it the chart the call returned (if any).
+ * @param {ToolView} tool
+ * @param {number} index the reply's place in the transcript (a call id may come again in a later reply)
+ * @param {boolean} writing whether the reply that asked for it is still being written
+ * @param {Set<string>} opened
+ * @returns {HTMLElement[]}
+ */
+function toolParts(tool, index, writing, opened) {
+  const name = text.toolNames[tool.name] ?? tool.name;
+  const stored = tool.result ? parseResult(tool.result.content) : null;
+  const failed = stored ? stored.status === "error" : Boolean(tool.result?.isError);
+  // The browser writes every result it makes as JSON; an error in plain text is the server's: the call never
+  // ran (broken arguments, or closed when the person wrote again).
+  const ran = stored ? (failed ? text.toolFailed(name) : text.toolRan(name, stored.seconds))
+    : failed ? text.toolDidNotRun(name) : text.toolRan(name, undefined);
+  const [label, state] = tool.result ? [ran, failed ? "is-failed" : "is-done"]
+    : tool.phase === "running" ? [text.toolRunning(name), "is-running"]
+      : tool.phase === "queued" ? [text.toolQueued(name), "is-waiting"]
+        : tool.phase === "stopped" ? [text.toolStopped, "is-stopped"]
+          : writing ? [text.toolWriting(name), "is-waiting"] : [text.toolNotRun(name), "is-stopped"];
+  const code = typeof tool.input?.code === "string" ? tool.input.code
+    : tool.input ? JSON.stringify(tool.input, null, 2) : partialCode(tool.preview);
+  /** @type {[string, string | undefined][]} */
+  const sections = stored
+    ? [[text.toolError, stored.error], [text.toolNote, stored.note], [text.toolConsole, stored.console], [text.toolValue, stored.value]]
+    : [[failed ? text.toolError : text.toolValue, tool.result?.content]];
+  const fold = foldKey("tool", `${index}:${tool.id}`);
+  const card = el("details", { class: `tool ${state}`, "data-fold": fold, "data-slot": fold, open: opened.has(fold) },
+    el("summary", {}, label),
+    code ? section(text.toolCode, code, "tool-code") : null,
+    ...sections.map(([title, body]) => (body ? section(title, body, title === text.toolError ? "tool-error-text" : "") : null)));
+  if (!stored?.svg || !/^<svg\b/.test(stored.svg)) return [card];
+  let src;
+  try {
+    src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(stored.svg.toWellFormed())}`;
+  } catch {
+    return [card]; // a chart that cannot be shown never stops the rest of the chat from being drawn
+  }
+  return [card, el("img", { class: "tool-chart", "data-slot": `chart:${tool.id}`, alt: text.chartAlt, src })];
+}
+
+/**
+ * @param {string} title
+ * @param {string} body
+ * @param {string} kind
+ */
+function section(title, body, kind) {
+  return el("div", { class: `tool-section ${kind}`.trim() }, el("div", { class: "tool-label" }, title), el("pre", {}, body));
+}
+
+/**
+ * The code of a call whose arguments are still arriving (`{"code": "con…`), decoded as far as it has come, so
+ * it reads as code while it is written. Anything else is shown as it came.
+ * @param {string} preview
+ */
+export function partialCode(preview) {
+  const start = /^\s*\{\s*"code"\s*:\s*"/.exec(preview);
+  if (!start) return preview;
+  let out = "";
+  for (let i = start[0].length; i < preview.length; i++) {
+    const char = preview[i];
+    if (char === "\"") break;
+    if (char !== "\\") {
+      out += char;
+      continue;
+    }
+    const next = preview[++i];
+    if (next === undefined) break;
+    if (next === "u") {
+      const hex = preview.slice(i + 1, i + 5);
+      if (!/^[0-9a-fA-F]{4}$/.test(hex)) break;
+      out += String.fromCharCode(parseInt(hex, 16));
+      i += 4;
+    } else {
+      out += /** @type {Record<string, string>} */ ({ n: "\n", t: "\t", r: "\r", b: "\b", f: "\f" })[next] ?? next;
+    }
+  }
+  return out;
 }

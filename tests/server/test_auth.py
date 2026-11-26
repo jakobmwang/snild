@@ -13,7 +13,7 @@ from snild import auth
 from snild.store import Store
 
 
-def test_before_setup_only_the_doors_in_are_open(anonymous):
+def test_before_setup_only_status_and_setup_are_open(anonymous):
     status = anonymous.http.get("/api/v1/auth/status").json()
     assert status["setup_required"] is True and status["user"] is None
     assert anonymous.http.get("/").status_code == 200
@@ -72,7 +72,7 @@ def test_setup_is_throttled(anonymous):
 @pytest.mark.parametrize("username, password, code", [
     ("a", PASSWORD, "invalid_username"),
     ("no spaces", PASSWORD, "invalid_username"),
-    ("ålborg", PASSWORD, "invalid_username"),
+    ("zoë", PASSWORD, "invalid_username"),
     ("alice", "fourteen chars", "weak_password"),
     ("alice", "x" * 257, "weak_password"),
 ])
@@ -85,11 +85,11 @@ def test_usernames_and_passwords_follow_the_rules(anonymous, username, password,
 def test_a_password_may_be_a_sentence_in_any_language(anonymous):
     import unicodedata
 
-    password = "Rødgrød med fløde på café, tak 🍓"
+    password = "Crème brûlée für Zoë, s’il vous plaît 🍓"
     anonymous.set_up("alice", password)
     anonymous.http.post("/api/v1/auth/sign-out")
     assert anonymous.sign_in("alice", password).status_code == 200
-    # the same letters typed another way (å as a + ring, é as e + accent) are the same password
+    # the same letters typed another way (è as e + grave, ü as u + diaeresis) are the same password
     decomposed = unicodedata.normalize("NFD", password)
     assert decomposed != password
     assert anonymous.sign_in("alice", decomposed).status_code == 200
@@ -315,8 +315,8 @@ def test_password_hashes_use_scrypt_with_owasp_settings():
     assert (scheme, log2_n, r, p) == ("scrypt", "16", "8", "2") and len(bytes.fromhex(salt)) == 16
     assert auth.verify_password("correct horse battery staple", stored)
     assert not auth.verify_password("correct horse battery stapler", stored)
-    assert not auth.verify_password("x", "scrypt$30$8$1$00$00")  # absurd costs from a tampered row: refused
-    assert not auth.verify_password("x", "garbage")
+    assert not auth.verify_password("x", "scrypt$30$8$1$00$00")  # unsupported scrypt costs (a tampered row)
+    assert not auth.verify_password("x", "invalid-hash")
 
 
 def test_a_hash_that_has_started_keeps_its_place_even_if_its_request_goes_away():
@@ -496,8 +496,8 @@ def test_names_and_titles_lose_control_characters(client):
     user = client.http.portal.call(accounts.create_user, "mallory", "Mal\x1b[2Jlory\x07", PASSWORD, "member")
     assert user["display_name"] == "Mal [2Jlory"
     chat = client.new_chat()
-    renamed = client.http.patch(f"/api/v1/chats/{chat['id']}", json={"title": "Plans\x1b]0;pwned\x07"})
-    assert renamed.json()["chat"]["title"] == "Plans ]0;pwned"
+    renamed = client.http.patch(f"/api/v1/chats/{chat['id']}", json={"title": "Plans\x1b]0;window title\x07"})
+    assert renamed.json()["chat"]["title"] == "Plans ]0;window title"
     assert client.http.portal.call(store.user_by_username, "eve")["role"] == "member"
 
 

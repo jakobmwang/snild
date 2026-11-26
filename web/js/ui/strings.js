@@ -28,7 +28,6 @@ export const text = Object.freeze({
   createAdmin: "Create admin account",
   signInTitle: "Sign in to snild",
   signIn: "Sign in",
-  signingIn: "Signing in…",
   signedOutNotice: "You were signed out. Sign in to carry on where you were.",
   /** @param {number} seconds */
   tryAgainIn: (seconds) => `Too many attempts. Try again in ${seconds < 90 ? "a minute" : `${Math.round(seconds / 60)} minutes`}.`,
@@ -51,13 +50,8 @@ export const text = Object.freeze({
   deleteBody: (title) => `“${title}” and everything in it will be gone for good.`,
   deleteStopFirst: "A reply is still being written. Stop it first, then delete the chat.",
   cancel: "Cancel",
-  openMenu: "Menu",
-  closeMenu: "Close menu",
 
   // Account
-  account: "Account",
-  people: "People",
-  settings: "Settings",
   changePassword: "Change password",
   currentPassword: "Current password",
   newPassword: "New password",
@@ -65,27 +59,46 @@ export const text = Object.freeze({
   save: "Save",
   signOut: "Sign out",
 
+  // The admin area
+  admin: "Admin",
+  adminTitle: "Admin",
+  backToChat: "Back to chat",
+  adminOnly: "Only admins can open the admin pages.",
+  loading: "Loading…",
+  loadFailed: "This could not be loaded.",
+  tryAgain: "Try again",
+
   // Settings (admins)
   settingsTitle: "Settings",
+  signInGroup: "Sign-in",
   chatsKept: "Chats are kept until people delete them.",
   noLimit: "No limit",
+  unsaved: "You have unsaved changes.",
+  discard: "Discard",
+  settingsSaved: "Settings saved.",
 
   // People (admins)
   peopleTitle: "People",
+  searchPeople: "Search people",
+  noMatches: "Nobody matches that search.",
   addPerson: "Add person",
   addPersonBody: "Choose a password for them, and tell them what it is. They can change it in the account menu.",
   newName: "Name (optional)",
-  makeAdminToo: "Admin: can manage people",
+  makeAdminToo: "Admin: can manage people and settings",
   add: "Add",
-  close: "Close",
   ok: "OK",
   roleAdmin: "Admin",
   statusDisabled: "Disabled",
   thisIsYou: "You",
+  personActions: "Actions for",
   setPassword: "Set password",
   /** @param {string} name */
   setPasswordFor: (name) => `A new password for ${name}`,
   setPasswordBody: "Their old password stops working and they are signed out everywhere. Tell them the new one.",
+  /** @param {string} name */
+  personAdded: (name) => `${name} was added.`,
+  /** @param {string} name */
+  passwordSet: (name) => `${name} has a new password.`,
   makeAdmin: "Make admin",
   removeAdmin: "Remove admin",
   disable: "Disable",
@@ -101,6 +114,20 @@ export const text = Object.freeze({
   // The chat
   model: "Model",
   emptyTitle: "What can I help with?",
+  emptyLead: "Ask anything. The test model plays scripted answers, so these show what snild can do:",
+  starters: [
+    { label: "A formatted answer", prompt: "Show me some markdown" },
+    { label: "Think it through first", prompt: "Which is larger, 0.9 or 0.11? Think it through." },
+    { label: "Analyse data with code", prompt: "Analyse the demo sales data" },
+  ],
+  jumpToLatest: "Jump to latest",
+  copyAnswer: "Copy answer",
+  /** @param {number} seconds */
+  thoughtFor: (seconds) => `Thought for ${seconds} s`,
+  thought: "Thought",
+  toggleRail: "Show or hide the chat list",
+  /** @type {Record<"system" | "light" | "dark", string>} */
+  themeNames: { system: "System theme", light: "Light theme", dark: "Dark theme" },
   messagePlaceholder: "Message snild",
   messageLabel: "Message",
   send: "Send",
@@ -108,13 +135,31 @@ export const text = Object.freeze({
   stopping: "Stopping…",
   you: "You",
   assistant: "snild",
-  thinking: "Thinking",
   thinkingNow: "Thinking…",
+  /** What a tool is called on its card. @type {Record<string, string>} */
+  toolNames: { run_js: "JavaScript" },
   /** @param {string} name */
-  usedTool: (name) => `Used ${name}`,
+  toolWriting: (name) => `Writing ${name}…`,
   /** @param {string} name */
-  usingTool: (name) => `Using ${name}…`,
-  toolFailed: "It did not work:",
+  toolQueued: (name) => `Waiting to run ${name}…`,
+  /** @param {string} name */
+  toolRunning: (name) => `Running ${name}…`,
+  /** @param {string} name @param {number | undefined} seconds */
+  toolRan: (name, seconds) => (seconds === undefined ? `Ran ${name}`
+    : `Ran ${name} · ${seconds < 10 ? seconds.toFixed(1) : Math.round(seconds)} s`),
+  /** @param {string} name */
+  toolFailed: (name) => `${name} failed`,
+  toolStopped: "Stopped",
+  /** @param {string} name */
+  toolNotRun: (name) => `${name} has not run yet`,
+  /** @param {string} name */
+  toolDidNotRun: (name) => `${name} did not run`,
+  toolCode: "Code",
+  toolValue: "Returned",
+  toolConsole: "Console",
+  toolError: "Error",
+  toolNote: "Note",
+  chartAlt: "Chart drawn by the code",
   stopped: "Stopped.",
   table: "Table",
   copy: "Copy",
@@ -129,6 +174,8 @@ export const text = Object.freeze({
   interrupted: "The reply was cut off before it finished.",
   stoppedEarly: "Stopped before an answer was written.",
   unfinished: "The answer is not finished.",
+  toolsStopped: "Stopped while the code ran. Continue runs it again, or write something new.",
+  toolsWaiting: "The code in this answer has not run yet.",
   signOutFailed: "Could not sign out: snild cannot be reached. Try again.",
   renameFailed: "The chat could not be renamed. Try again.",
   continue: "Continue",
@@ -149,5 +196,4 @@ export const text = Object.freeze({
     internal: "Something went wrong on the server.",
     not_found: "This chat no longer exists.",
   })[code] || "Something went wrong.",
-  version: "Version",
 });

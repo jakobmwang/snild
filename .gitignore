@@ -14,5 +14,5 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# Test code fetched by scripts/fetch_vendor.py
-/tests/vendor/
+# Browser libraries fetched by scripts/fetch_vendor.py
+/web/vendor/

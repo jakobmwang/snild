@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch the third-party code listed in vendor.json into tests/vendor/ and verify its SHA-256 digests.
+"""Fetch the browser libraries listed in vendor.json into web/vendor/ and verify their SHA-256 digests.
 
 Usage:
     python3 scripts/fetch_vendor.py          # download what is missing or wrong; fail on any mismatch
@@ -8,7 +8,7 @@ Usage:
                                              # print the digest to put in vendor.json (a deliberate act)
 
 Standard library only. A file reaches its final place only after its digest matches. Every URL must use the
-allowed scheme, and every path must stay inside tests/vendor/.
+allowed scheme, and every path must stay inside web/vendor/.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "vendor.json"
-DEST = ROOT / "tests" / "vendor"
+DEST = ROOT / "web" / "vendor"
 PLACEHOLDER = "PIN_ON_FIRST_FETCH"
 TIMEOUT_S = 60
 
@@ -70,7 +70,7 @@ def main() -> int:
             expected = entry["sha256"]
             label = f"{library['name']} {library['version']}: {entry['path']}"
             if not entry["url"].startswith("https://") or not target.resolve().is_relative_to(DEST.resolve()):
-                print(f"REFUSED   {label} (the URL scheme is not allowed, or the path leaves tests/vendor)")
+                print(f"REFUSED   {label} (the URL scheme is not allowed, or the path leaves web/vendor)")
                 problems += 1
                 continue
             if expected == PLACEHOLDER and not args.pin:

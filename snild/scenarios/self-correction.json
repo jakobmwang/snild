@@ -1,0 +1,38 @@
+{
+  "name": "self-correction",
+  "description": "A run_js call that fails (a misspelt column), then a fixed one. It claims success only if the first call really failed and the second really worked.",
+  "title": "Counting sales per product",
+  "steps": [
+    {
+      "text": "Let me count the sales per product.",
+      "tool_calls": [
+        {
+          "name": "run_js",
+          "input": {
+            "code": "return await sql(\"SELECT prodcut, count(*) AS sales FROM read_csv('demo/sales.csv') GROUP BY prodcut ORDER BY sales DESC\");"
+          }
+        }
+      ]
+    },
+    {
+      "expect_tool_result": {
+        "contains": "\"status\":\"error\""
+      },
+      "text": "That column is called product, not prodcut. Running it again with the right name.",
+      "tool_calls": [
+        {
+          "name": "run_js",
+          "input": {
+            "code": "const rows = await sql(\"SELECT product, count(*) AS sales FROM read_csv('demo/sales.csv') GROUP BY product ORDER BY sales DESC\");\nconsole.log(rows.map((r) => `${r.product}: ${r.sales}`).join(\"\\n\"));\nreturn rows.length;"
+          }
+        }
+      ]
+    },
+    {
+      "expect_tool_result": {
+        "contains": "Headphones: 428"
+      },
+      "text": "Fixed. Headphones sell most often (428 sales) and desk lamps least often (371)."
+    }
+  ]
+}

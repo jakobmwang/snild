@@ -11,7 +11,11 @@
  * @typedef {import("./protocol.js").Item} Item
  *
  * @typedef {{id: string, name: string, preview: string, input: Record<string, unknown> | null,
- *            result: {content: string, isError: boolean} | null}} ToolView
+ *            result: {content: string, isError: boolean} | null,
+ *            phase?: "queued" | "running" | "stopped", unsaved?: boolean}} ToolView
+ *   phase: where this browser is with running the call (until its result is there); none once it has one, or
+ *   when it was read from the server without a result (not run yet). unsaved: the result was made here and the
+ *   server does not have it yet
  * @typedef {{kind: "user", id: string, text: string}} UserMessage
  * @typedef {{kind: "assistant", id: string, text: string, thinking: string, tools: ToolView[],
  *            status: "complete" | "cancelled" | "writing"}} AssistantMessage
@@ -34,6 +38,10 @@ export const PREVIEW_CHARS = 2048; // a tool call's arguments as they stream, sh
 const STOPPED_EARLY = Object.freeze({ kind: "stopped", code: "cancelled", message: "", retryable: true });
 /** @type {Outcome} */
 const UNFINISHED = Object.freeze({ kind: "unfinished", code: "unfinished", message: "", retryable: true });
+/** @type {Outcome} the model asked for tools that have not run (Continue runs them) */
+const TOOLS_WAITING = Object.freeze({ kind: "unfinished", code: "tools", message: "", retryable: true });
+/** @type {Outcome} */
+const TOOLS_STOPPED = Object.freeze({ kind: "stopped", code: "tools", message: "", retryable: true });
 
 /**
  * @param {ChatSnapshot} snapshot
@@ -50,6 +58,8 @@ export function fromSnapshot(snapshot) {
     outcome = STOPPED_EARLY; // stopped before a word was written: nothing was saved but the question
   } else if (!running && snapshot.awaiting === "model") {
     outcome = UNFINISHED; // the model still owes a reply (it gave up on its tools, or a chat from before)
+  } else if (!running && snapshot.awaiting === "tools") {
+    outcome = TOOLS_WAITING; // stopped, or the page closed, while its tools ran
   }
   return {
     chat: { ...snapshot.chat },
@@ -190,8 +200,10 @@ export function addPendingMessage(state, text) {
  */
 export function confirmPendingMessages(state, committedIds) {
   const pending = state.messages.filter((m) => m.kind === "user" && m.id === "");
+  // The message comes last: the server may save results for calls it closed first (see close_skipped_calls).
+  const ids = committedIds.slice(-pending.length);
   pending.forEach((message, i) => {
-    message.id = committedIds[i] ?? "";
+    message.id = ids[i] ?? "";
   });
 }
 
@@ -201,4 +213,61 @@ export function confirmPendingMessages(state, committedIds) {
  */
 export function dropPendingMessages(state) {
   state.messages = state.messages.filter((m) => m.id !== "" || m.kind !== "user");
+}
+
+/**
+ * The calls of the last reply that have no result yet, as the loop runs them. Read from the messages, which
+ * are current while this tab drives a reply (the saved items are only read again afterwards). A call the server
+ * answered itself (broken arguments) never had its input sent, so it is not among them.
+ * @param {ChatState} state
+ * @returns {import("./protocol.js").ToolCallEvent[]}
+ */
+export function pendingCalls(state) {
+  const last = state.messages.findLast((message) => message.kind === "assistant");
+  if (!last || last.kind !== "assistant") return [];
+  return last.tools.filter((tool) => !tool.result && tool.input)
+    .map((tool) => ({ seq: 0, type: "tool_call", call_id: tool.id, name: tool.name, input: tool.input ?? {} }));
+}
+
+/**
+ * Show where this browser is with running a call: queued, running, or finished with its result.
+ * @param {ChatState} state
+ * @param {string} callId
+ * @param {"queued" | "running" | "done"} phase
+ * @param {{content: string, is_error?: boolean}} [result]
+ * @returns {boolean} whether the call is on screen
+ */
+export function showToolPhase(state, callId, phase, result) {
+  // Only the last reply has calls to run (an earlier reply may have used the same id).
+  const last = state.messages.findLast((message) => message.kind === "assistant");
+  const tool = last?.kind === "assistant" ? last.tools.find((t) => t.id === callId) : undefined;
+  if (!tool) return false;
+  if (phase === "done") {
+    delete tool.phase;
+    tool.result = { content: result?.content ?? "", isError: Boolean(result?.is_error) };
+    tool.unsaved = true;
+  } else {
+    tool.phase = phase;
+  }
+  return true;
+}
+
+/**
+ * Stop pressed while tools ran: nothing was posted, so every call of the step is stopped again, also one that
+ * had finished here (the server never got its result); the chat offers Continue, which runs them all, as after a
+ * reload.
+ * @param {ChatState} state
+ */
+export function stopTools(state) {
+  // Only the last reply's batch waits: results of earlier steps were saved with the step that followed them.
+  const last = state.messages.findLast((message) => message.kind === "assistant");
+  if (last?.kind === "assistant") {
+    for (const tool of last.tools) {
+      if (!tool.phase && !tool.unsaved) continue;
+      tool.phase = "stopped";
+      tool.result = null;
+      delete tool.unsaved;
+    }
+  }
+  state.outcome = TOOLS_STOPPED;
 }

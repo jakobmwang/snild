@@ -17,6 +17,7 @@
  *
  * @typedef {{key: string, items: (UserItemIn | ToolResultIn)[], revision: number, modelId: string}} Step
  * @typedef {(call: ToolCallEvent, signal: AbortSignal | undefined) => Promise<{content: string, is_error?: boolean}>} ToolRunner
+ * @typedef {(callId: string, phase: "queued" | "running" | "done", result?: ToolResultIn) => void} ToolListener
  * @typedef {{
  *   turn(turn: {chatId: string, modelId: string, expectedRevision: number, items: (UserItemIn | ToolResultIn)[],
  *               idempotencyKey?: string, signal?: AbortSignal}): AsyncIterable<StreamEvent>
@@ -27,11 +28,12 @@ export const MAX_STEPS = 32; // model steps in one go before the loop hands back
 
 /**
  * @param {{api: TurnApi, chatId: string, step: Step, tools: Map<string, ToolRunner>,
- *          onEvent: (event: StreamEvent) => void, onStep?: (step: Step) => void, signal?: AbortSignal,
- *          newKey: () => string}} options
+ *          onEvent: (event: StreamEvent) => void, onStep?: (step: Step) => void, onTool?: ToolListener,
+ *          signal?: AbortSignal, toolSignal?: AbortSignal, newKey: () => string}} options
+ *   signal ends the requests (the chat was closed); toolSignal ends the tools too (Stop), and by default is signal
  * @returns {Promise<DoneEvent | ErrorEvent>} the last run's final event
  */
-export async function runTurn({ api, chatId, step, tools, onEvent, onStep = () => {}, signal, newKey }) {
+export async function runTurn({ api, chatId, step, tools, onEvent, onStep = () => {}, onTool, signal, toolSignal = signal, newKey }) {
   let autoContinued = false;
   for (let count = 1; ; count++) {
     /** @type {ToolCallEvent[]} */
@@ -49,7 +51,7 @@ export async function runTurn({ api, chatId, step, tools, onEvent, onStep = () =
     /** @type {Step["items"] | null} */
     let items = null;
     if (last.awaiting === "tools") {
-      items = await Promise.all(calls.map((call) => runTool(tools, call, signal)));
+      items = await runTools(tools, calls, toolSignal, onTool);
     } else if (last.awaiting === "model" && last.finish_reason === "tool_calls" && !autoContinued) {
       // The server answered calls it would not pass on (unknown tools, broken arguments): let the model see
       // those answers once on its own; a second time, the user decides (the chat offers Continue).
@@ -60,6 +62,29 @@ export async function runTurn({ api, chatId, step, tools, onEvent, onStep = () =
     step = { key: newKey(), items, revision: last.revision, modelId: step.modelId };
     onStep(step);
   }
+}
+
+/**
+ * Run tool calls one after another (they share the locked frames, and a later call may build on what an earlier
+ * one printed), saying when each starts and ends. Stop (the signal) ends the one running and skips the rest.
+ * @param {Map<string, ToolRunner>} tools
+ * @param {ToolCallEvent[]} calls
+ * @param {AbortSignal | undefined} signal
+ * @param {ToolListener} [onTool]
+ * @returns {Promise<ToolResultIn[]>}
+ */
+export async function runTools(tools, calls, signal, onTool = () => {}) {
+  for (const call of calls) onTool(call.call_id, "queued");
+  /** @type {ToolResultIn[]} */
+  const results = [];
+  for (const call of calls) {
+    signal?.throwIfAborted();
+    onTool(call.call_id, "running");
+    const result = await runTool(tools, call, signal);
+    onTool(call.call_id, "done", result);
+    results.push(result);
+  }
+  return results;
 }
 
 /**

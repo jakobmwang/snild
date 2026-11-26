@@ -7,7 +7,8 @@ from conftest import FAST_HASH, Api, kinds, open_api, text_of
 from snild.auth import Hasher
 from snild.providers.emulator import EmulatorProvider
 from snild.runs import check_calls
-from snild.tools import ToolContract
+from snild.tools import TOOLS_FILE, ToolContract
+from snild.transcript import NOT_RUN
 
 
 def test_a_text_reply_streams_and_is_saved(client):
@@ -95,11 +96,22 @@ def test_every_pending_call_needs_exactly_one_result(client):
     assert status == 200 and text_of(final) == "Both ran: 42 and ABC."
 
 
-def test_a_user_message_cannot_skip_pending_tool_calls(client):
+def test_a_new_message_while_calls_wait_closes_them_as_not_run(client):
+    """The person stopped the code and wrote again: each pending call gets an error result, saved with the
+    message in one step, so the transcript stays whole."""
     chat = client.new_chat()
-    done = client.say(chat["id"], 0, "[scenario:run-js] add")[-1]
-    status, error = client.turn(chat["id"], done["revision"], [{"type": "user", "text": "never mind"}])
-    assert status == 409 and error["error"]["code"] == "tools_pending"
+    done = client.say(chat["id"], 0, "[scenario:two-calls] go")[-1]
+    assert done["awaiting"] == "tools"
+    status, events = client.turn(chat["id"], done["revision"], [{"type": "user", "text": "never mind"}])
+    assert status == 200 and events[-1]["type"] == "done"
+    started = next(e for e in events if e["type"] == "run")
+    assert started["revision"] == done["revision"] + 3 and len(started["committed_ids"]) == 3
+    items = client.chat(chat["id"])["items"]
+    closed = items[done["revision"]:done["revision"] + 3]
+    assert [(it["type"], it.get("is_error"), it.get("content")) for it in closed] == [
+        ("tool_result", True, NOT_RUN), ("tool_result", True, NOT_RUN), ("user", None, None)]
+    assert [it["call_id"] for it in closed[:2]] == [c["id"] for c in items[done["revision"] - 1]["tool_calls"]]
+    assert closed[2]["text"] == "never mind"
 
 
 def test_broken_tool_arguments_are_answered_by_the_server(client):
@@ -347,8 +359,8 @@ def test_an_empty_call_id_is_answered_by_the_server():
     assert to_run == [] and answered[0]["is_error"]
 
 
-def test_tools_the_browser_cannot_run_yet_are_not_offered(config):
-    """This version ships no tools: the model is offered none, and a call it makes anyway gets an error result."""
+def test_only_the_tools_the_browser_runs_are_offered(config):
+    """The model is offered run_js (with the guidance), and a call to a tool that is not enabled gets an error."""
     seen = []
 
     class Recording(EmulatorProvider):
@@ -360,19 +372,23 @@ def test_tools_the_browser_cannot_run_yet_are_not_offered(config):
         api = Api(http)
         api.set_up("alice")
         chat = api.new_chat()
-        events = api.say(chat["id"], 0, "[scenario:run-js] go")
+        events = api.say(chat["id"], 0, "[scenario:render-html] go")
         assert "tool_call" not in kinds(events)
         state = api.chat(chat["id"])
         assert state["awaiting"] == "model" and state["items"][-1]["type"] == "tool_result"
         assert state["items"][-1]["is_error"] and "no tool named" in state["items"][-1]["content"]
     tools, system = seen[0]
-    assert tools == [] and "tool" not in system.lower()
+    assert [tool["name"] for tool in tools] == ["run_js"] and ToolContract().guidance in system
 
 
-def test_the_tool_guidance_joins_the_prompt_only_with_tools():
+def test_the_tool_guidance_joins_the_prompt_only_with_tools(tmp_path):
     contract = ToolContract(enable_all=True)
     assert contract.guidance and contract.guidance in contract.system_prompt("Base.\n", set())
-    assert ToolContract().system_prompt("Base.\n", set()) == "Base.\n"
+    none = json.loads(TOOLS_FILE.read_text("utf-8"))
+    for tool in none["tools"]:
+        tool["enabled"] = False
+    (tmp_path / "tools.json").write_text(json.dumps(none), "utf-8")
+    assert ToolContract(tmp_path / "tools.json").system_prompt("Base.\n", set()) == "Base.\n"
 
 
 def test_rename_and_delete(client):

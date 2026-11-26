@@ -213,8 +213,8 @@ class Store:
             self._db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     def _settle_pending_calls(self) -> None:
-        """Schema 1 chats left waiting for tool results this version cannot produce get error results, so they
-        can go on."""
+        """Schema 1 chats left waiting for tool results (from before tools ran in the browser) get error results,
+        so they can go on."""
         from .transcript import pending_call_ids, stored_tool_result  # transcript imports this module
 
         for (chat_id,) in self._db.execute("SELECT id FROM chats").fetchall():
@@ -338,8 +338,8 @@ class Store:
 
     @on_db_thread
     def create_user(self, user: dict[str, Any]) -> str:
-        """Add someone (snild-admin) and return their role. The first person is always an admin, decided in
-        the same transaction as the insert, and takes over chats from before."""
+        """Add someone and return their role. The first person is always an admin, decided in the same
+        transaction as the insert, and takes over chats from before."""
         with self._transaction():
             if self._db.execute("SELECT 1 FROM users LIMIT 1").fetchone() is None:
                 user = {**user, "role": "admin"}

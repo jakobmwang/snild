@@ -6,8 +6,12 @@
 
 import { groupByDate } from "../core/history.js";
 import { pathOf } from "../runtime/router.js";
-import { el, icon } from "./dom.js";
+import { el, icon, initials } from "./dom.js";
+import { menu } from "./menu.js";
 import { text } from "./strings.js";
+
+/** @typedef {import("./menu.js").Menus} Menus */
+/** @typedef {import("./theme.js").Theme} Theme */
 
 /** @typedef {import("../core/protocol.js").Chat} Chat */
 
@@ -17,11 +21,12 @@ export class RailView {
   /**
    * @param {{user: import("../core/protocol.js").User, onOpen: (chatId: string | null) => void,
    *          onRename: (chatId: string, title: string) => Promise<boolean>, onDelete: (chat: Chat) => void,
-   *          onChangePassword: () => void, onSignOut: () => void, onPeople?: () => void, onSettings?: () => void,
-   *          signal: AbortSignal}} options
-   *   onPeople, onSettings: shown to admins only; signal: ends the rail's listeners on the document when the app closes
+   *          onChangePassword: () => void, onSignOut: () => void, onAdmin: () => void,
+   *          theme: () => import("./theme.js").Theme, onTheme: (theme: import("./theme.js").Theme) => void,
+   *          menus: Menus}} options
+   *   onAdmin: shown to admins only; theme: the current choice, shown checked in the account menu
    */
-  constructor({ user, onOpen, onRename, onDelete, onChangePassword, onSignOut, onPeople, onSettings, signal }) {
+  constructor({ user, onOpen, onRename, onDelete, onChangePassword, onSignOut, onAdmin, theme, onTheme, menus }) {
     this.onOpen = onOpen;
     this.onRename = onRename;
     this.onDelete = onDelete;
@@ -30,8 +35,7 @@ export class RailView {
     /** @type {string | null} */
     this.current = null;
     this.renaming = "";
-    /** The menu that is open, if any. @type {{close: () => void, button: HTMLElement, list: HTMLElement} | null} */
-    this.openMenu = null;
+    this.menus = menus;
     this.stale = false; // the list changed while a menu or a rename was open: redraw once they close
 
     const newChat = el("a", { href: "/", class: "rail-new" }, icon("plus"), el("span", {}, text.newChat));
@@ -42,38 +46,32 @@ export class RailView {
       }
     });
     this.list = el("nav", { class: "rail-chats", "aria-label": text.chats });
-    const accountButton = el("button", { type: "button", class: "rail-account", "aria-haspopup": "menu", "aria-expanded": "false" },
-      icon("user"), el("span", { class: "rail-account-name" }, user.name));
+    const accountButton = el("button", { type: "button", class: "rail-account" },
+      el("span", { class: "avatar", "aria-hidden": "true" }, initials(user.name)),
+      el("span", { class: "rail-account-name" }, user.name));
+    /** @param {Theme} choice */
+    const themeEntry = (choice) => /** @type {import("./menu.js").MenuEntry} */ ([text.themeNames[choice], () => {
+      onTheme(choice);
+      for (const item of accountMenu.querySelectorAll("[role=menuitemradio]")) {
+        item.setAttribute("aria-checked", String(item.textContent === text.themeNames[choice]));
+      }
+    }, { checked: theme() === choice }]);
     const accountMenu = menu([
-      ...(user.role === "admin" && onPeople ? [/** @type {[string, () => void]} */ ([text.people, onPeople])] : []),
-      ...(user.role === "admin" && onSettings ? [/** @type {[string, () => void]} */ ([text.settings, onSettings])] : []),
+      ...(user.role === "admin" ? [/** @type {import("./menu.js").MenuEntry} */ ([text.admin, onAdmin])] : []),
+      themeEntry("system"), themeEntry("light"), themeEntry("dark"),
       [text.changePassword, onChangePassword],
       [text.signOut, onSignOut],
     ]);
-    this.accountButton = accountButton;
-    this.#wireMenu(accountButton, accountMenu);
+    menus.wire(accountButton, accountMenu);
     this.element = el("div", { class: "rail-inner" },
       el("div", { class: "rail-top" }, el("span", { class: "brand" }, text.appName), newChat),
       this.list,
       el("div", { class: "rail-bottom menu-anchor" }, accountButton, accountMenu));
-    document.addEventListener("click", (event) => {
-      // A click outside the open menu (and its button) closes it, leaving focus where the click put it.
-      const open = this.openMenu;
-      const target = /** @type {Node} */ (event.target);
-      if (open && !open.list.contains(target) && !open.button.contains(target)) open.close();
-    }, { signal });
   }
 
-  /**
-   * Close the open menu, giving focus back to its button (Escape). Returns whether there was one.
-   * @returns {boolean}
-   */
-  closeOpenMenu() {
-    const open = this.openMenu;
-    if (!open) return false;
-    open.close();
-    open.button.focus();
-    return true;
+  /** A menu closed: redraw now if the list changed while it was open. */
+  menuClosed() {
+    if (this.stale && !this.renaming) queueMicrotask(() => !this.menus.open && !this.renaming && this.#draw());
   }
 
   /**
@@ -84,7 +82,7 @@ export class RailView {
     this.chats = chats;
     this.current = current;
     // Redrawing would throw away a rename being typed or a menu being used: wait until they close.
-    if (this.renaming || this.openMenu) this.stale = true;
+    if (this.renaming || this.menus.open) this.stale = true;
     else this.#draw();
   }
 
@@ -114,8 +112,7 @@ export class RailView {
         this.onOpen(chat.id);
       }
     });
-    const button = el("button", { type: "button", class: "rail-more", "aria-haspopup": "menu", "aria-expanded": "false",
-      "aria-label": `${text.chatActions}: ${title}` }, icon("more"));
+    const button = el("button", { type: "button", class: "rail-more", "aria-label": `${text.chatActions}: ${title}` }, icon("more"));
     const actions = menu([
       [text.rename, () => {
         this.renaming = chat.id;
@@ -123,7 +120,7 @@ export class RailView {
       }],
       [text.delete, () => this.onDelete(chat)],
     ]);
-    this.#wireMenu(button, actions);
+    this.menus.wire(button, actions);
     return el("li", { class: `rail-item menu-anchor${chat.id === this.current ? " is-current" : ""}` }, link, button, actions);
   }
 
@@ -169,63 +166,6 @@ export class RailView {
     const link = /** @type {HTMLElement | null} */ (this.list.querySelector(`a[href="${pathOf(chatId)}"]`));
     link?.focus();
   }
-
-  /**
-   * @param {HTMLElement} button
-   * @param {HTMLElement} list
-   */
-  #wireMenu(button, list) {
-    const entry = {
-      button,
-      list,
-      close: () => {
-        list.hidden = true;
-        button.setAttribute("aria-expanded", "false");
-        if (this.openMenu === entry) this.openMenu = null;
-        if (this.stale && !this.renaming) queueMicrotask(() => !this.openMenu && !this.renaming && this.#draw());
-      },
-    };
-    button.addEventListener("click", () => {
-      const opening = list.hidden;
-      this.openMenu?.close();
-      if (opening) {
-        list.hidden = false;
-        button.setAttribute("aria-expanded", "true");
-        this.openMenu = entry;
-        /** @type {HTMLElement | null} */ (list.querySelector("button"))?.focus();
-      }
-    });
-    const close = entry.close;
-    // Capture: close and give focus back to the trigger before the chosen action runs, so a dialog it
-    // opens knows where focus returns to.
-    list.addEventListener("click", () => {
-      close();
-      button.focus();
-    }, { capture: true });
-    list.addEventListener("keydown", (event) => {
-      const items = /** @type {HTMLElement[]} */ ([...list.querySelectorAll("button")]);
-      const at = items.indexOf(/** @type {HTMLElement} */ (document.activeElement));
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        items[(at + (event.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus();
-      } else if (event.key === "Tab") {
-        close();
-      }
-    });
-  }
-}
-
-/**
- * @param {[string, () => void][]} entries
- */
-function menu(entries) {
-  const list = el("div", { class: "menu", role: "menu" }, ...entries.map(([label, action]) => {
-    const item = el("button", { type: "button", role: "menuitem" }, label);
-    item.addEventListener("click", action);
-    return item;
-  }));
-  list.hidden = true;
-  return list;
 }
 
 /** @param {MouseEvent} event A click that should stay in this tab (not middle, not with a modifier). */

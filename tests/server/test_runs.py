@@ -328,7 +328,6 @@ def test_a_run_asked_to_stop_before_it_starts_does_nothing(client):
     """The entry check in _execute: Stop that lands between the saved claim and the first model call."""
     import snild.runs
 
-    runs = client.http.app.state.runs
     original = snild.runs.Run.mark_saved
 
     def saved_then_stopped(self):
@@ -345,12 +344,9 @@ def test_a_run_asked_to_stop_before_it_starts_does_nothing(client):
 
 
 def test_a_replay_that_races_the_end_of_its_run_still_gets_the_end(client):
-    import asyncio as aio
-
     chat = client.new_chat()
     body = client.turn_body(0, [{"type": "user", "text": "hello"}], key="key-00000015")
     status, events = client.turn(chat["id"], 0, body["items"], key="key-00000015")
-    runs = client.http.app.state.runs
     store = client.http.app.state.store
     original = store.find_run
 

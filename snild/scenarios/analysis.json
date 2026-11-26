@@ -1,0 +1,26 @@
+{
+  "name": "analysis",
+  "match": "\\banaly[sz]e the demo sales\\b",
+  "description": "Real code over the demo files: totals per region from Excel, checked against the CSV, and a d3 chart. The answer states the totals only if the browser really computed them.",
+  "title": "Demo sales by region",
+  "steps": [
+    {
+      "thinking": "The demo files hold the same sales as CSV and Excel. Sum the amounts per region from the Excel file, check the grand total against the CSV, and draw a bar chart.",
+      "text": "I'll total the sales per region from the Excel file, check the result against the CSV, and draw a chart.",
+      "tool_calls": [
+        {
+          "name": "run_js",
+          "input": {
+            "code": "const byRegion = await sql(`\n  SELECT region, sum(amount) AS total, count(*) AS sales\n  FROM read_xlsx('demo/sales.xlsx')\n  GROUP BY region ORDER BY total DESC`);\nconst [csv] = await sql(\"SELECT sum(amount) AS total FROM read_csv('demo/sales.csv')\");\nconst total = d3.sum(byRegion, (d) => d.total);\nconsole.log(`Total: ${total} (CSV: ${csv.total})`);\nfor (const row of byRegion) console.log(`${row.region}: ${row.total} from ${row.sales} sales`);\n\nconst width = 560, height = 260, margin = { top: 16, right: 16, bottom: 32, left: 64 };\nconst x = d3.scaleBand(byRegion.map((d) => d.region), [margin.left, width - margin.right]).padding(0.3);\nconst y = d3.scaleLinear([0, d3.max(byRegion, (d) => d.total)], [height - margin.bottom, margin.top]).nice();\nconst svg = d3.create(\"svg\").attr(\"width\", width).attr(\"height\", height)\n  .attr(\"viewBox\", [0, 0, width, height]).attr(\"font-family\", \"system-ui, sans-serif\");\nsvg.append(\"g\").selectAll(\"rect\").data(byRegion).join(\"rect\")\n  .attr(\"x\", (d) => x(d.region)).attr(\"y\", (d) => y(d.total))\n  .attr(\"width\", x.bandwidth()).attr(\"height\", (d) => y(0) - y(d.total)).attr(\"fill\", \"#3657c8\");\nsvg.append(\"g\").attr(\"transform\", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x));\nsvg.append(\"g\").attr(\"transform\", `translate(${margin.left},0)`).call(d3.axisLeft(y).ticks(5, \"~s\"));\nreturn svg.node();"
+          }
+        }
+      ]
+    },
+    {
+      "expect_tool_result": {
+        "contains": "Total: 2245224 (CSV: 2245224)"
+      },
+      "text": "The demo data holds **2,000 sales** worth **2,245,224** in all, and the Excel and CSV files agree.\n\n| Region | Total |\n|---|---:|\n| West | 603,957 |\n| South | 582,012 |\n| North | 545,951 |\n| East | 513,304 |\n\nWest sells the most and East the least: West is about 18% ahead."
+    }
+  ]
+}

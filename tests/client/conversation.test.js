@@ -21,7 +21,7 @@ function fakeServer({ failures = 0 } = {}) {
     posted: [],
     failures,
     async getChat() {
-      return { chat: { ...chat, revision: server.items.length }, items: [...server.items], awaiting: server.items.length ? "user" : "user",
+      return { chat: { ...chat, revision: server.items.length }, items: [...server.items], awaiting: "user",
         active_run: null, last_run: null };
     },
     async *turn(turn) {
@@ -331,4 +331,136 @@ test("news during the pause before following an unsettled run again: the chat is
   assert.equal(followedOld, 1, "the old run was not followed again once news had come");
   assert.equal(conversation.state.run, null);
   conversation.dispose();
+});
+
+/** A server whose reply asks for two run_js calls; it keeps the chat as saved and records what was posted. */
+function toolServer() {
+  const server = {
+    posted: [],
+    items: [],
+    async getChat() {
+      const last = server.items.at(-1);
+      const awaiting = !last ? "user" : last.type === "assistant" && last.tool_calls.length ? "tools"
+        : last.type === "assistant" ? "user" : "model";
+      return { chat: { ...chat, revision: server.items.length }, items: [...server.items], awaiting, active_run: null, last_run: null };
+    },
+    async *turn(turn) {
+      server.posted.push(turn);
+      const at = turn.expectedRevision;
+      const posted = turn.items.map((item, i) => ({ id: `p${at + i}`, ...item, is_error: item.is_error ?? false }));
+      server.items.push(...posted);
+      yield { seq: 0, type: "run", run_id: `r${server.posted.length}`, chat_id: "chat_1", revision: server.items.length,
+        committed_ids: posted.map((item) => item.id) };
+      if (server.posted.length === 1) { // the first message asks for the calls; anything after is answered
+        const calls = [{ id: "c1", name: "run_js", input: { code: "one" } }, { id: "c2", name: "run_js", input: { code: "two" } }];
+        server.items.push({ id: "a1", type: "assistant", model_id: "m", text: "", thinking: "", tool_calls: calls, status: "complete" });
+        for (const call of calls) yield { seq: 1, type: "tool_call", call_id: call.id, name: call.name, input: call.input };
+        yield { seq: 2, type: "done", finish_reason: "tool_calls", revision: server.items.length, committed_ids: ["a1"], awaiting: "tools" };
+      } else {
+        server.items.push({ id: "a2", type: "assistant", model_id: "m", text: "ok", thinking: "", tool_calls: [], status: "complete" });
+        yield { seq: 1, type: "text_delta", text: "ok" };
+        yield { seq: 2, type: "done", finish_reason: "end", revision: server.items.length, committed_ids: ["a2"], awaiting: "user" };
+      }
+    },
+    async cancel() {},
+    async *follow() {},
+  };
+  return server;
+}
+
+/** run_js that finishes the first code at once and waits on the second until told to finish, or until Stop. */
+function waitingTool() {
+  const tool = { started: [], finish: () => {} };
+  tool.run = (call, signal) => new Promise((resolve, reject) => {
+    tool.started.push(call.input.code);
+    if (call.input.code === "one") return resolve({ content: "first" });
+    tool.finish = () => resolve({ content: "second" });
+    signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+  });
+  return tool;
+}
+
+const until = async (check) => {
+  while (!check()) await new Promise((resolve) => setTimeout(resolve, 1));
+};
+
+test("Stop while the second of two calls runs posts nothing, and Continue runs and posts the whole batch", async () => {
+  const server = toolServer();
+  const tool = waitingTool();
+  const conversation = new Conversation({ api: server, userId: "u1", chatId: "chat_1", modelId: "m", sync: null,
+    tools: new Map([["run_js", tool.run]]), onChange() {}, onSignedOut() {} });
+  await conversation.load();
+  const sent = conversation.send("go");
+  await until(() => tool.started.length === 2);
+  const [first, second] = conversation.state.messages[1].tools;
+  assert.equal(first.result.content, "first");
+  assert.equal(second.phase, "running");
+  await conversation.stop();
+  assert.equal(await sent, true);
+  assert.equal(server.posted.length, 1, "no results were posted");
+  assert.deepEqual([first.phase, first.result, second.phase], ["stopped", null, "stopped"]);
+  assert.deepEqual(conversation.state.outcome, { kind: "stopped", code: "tools", message: "", retryable: true });
+  assert.equal(conversation.notice, null, "a stop is not a failure");
+
+  const continued = conversation.continue();
+  await until(() => tool.started.length === 4);
+  tool.finish();
+  await continued;
+  assert.deepEqual(server.posted[1].items, [
+    { type: "tool_result", call_id: "c1", content: "first", is_error: false },
+    { type: "tool_result", call_id: "c2", content: "second", is_error: false },
+  ]);
+  assert.equal(server.posted[1].expectedRevision, 2);
+});
+
+test("after Stop, a new message can be sent at once (the server closes the stopped calls)", async () => {
+  const server = toolServer();
+  const tool = waitingTool();
+  const conversation = new Conversation({ api: server, userId: "u1", chatId: "chat_1", modelId: "m", sync: null,
+    tools: new Map([["run_js", tool.run]]), onChange() {}, onSignedOut() {} });
+  await conversation.load();
+  const sent = conversation.send("go");
+  await until(() => tool.started.length === 2);
+  await conversation.stop();
+  await sent;
+  assert.equal(await conversation.send("do something else"), true);
+  assert.deepEqual(server.posted[1].items, [{ type: "user", text: "do something else" }]);
+});
+
+test("Continue posts nothing if another tab has already given the calls their results", async () => {
+  const server = toolServer();
+  const tool = waitingTool();
+  const conversation = new Conversation({ api: server, userId: "u1", chatId: "chat_1", modelId: "m", sync: null,
+    tools: new Map([["run_js", tool.run]]), onChange() {}, onSignedOut() {} });
+  await conversation.load();
+  const sent = conversation.send("go");
+  await until(() => tool.started.length === 2);
+  await conversation.stop();
+  await sent;
+  server.items.push({ id: "x1", type: "tool_result", call_id: "c1", content: "elsewhere", is_error: false },
+    { id: "x2", type: "tool_result", call_id: "c2", content: "elsewhere", is_error: false },
+    { id: "x3", type: "assistant", model_id: "m", text: "done elsewhere", thinking: "", tool_calls: [], status: "complete" });
+  await conversation.continue();
+  assert.equal(tool.started.length, 2, "nothing ran again");
+  assert.equal(server.posted.length, 1);
+  assert.equal(conversation.state.awaiting, "user");
+});
+
+test("Continue runs nothing until it has read what the server waits for, and stays offered if it cannot", async () => {
+  const server = toolServer();
+  const tool = waitingTool();
+  const conversation = new Conversation({ api: server, userId: "u1", chatId: "chat_1", modelId: "m", sync: null,
+    tools: new Map([["run_js", tool.run]]), onChange() {}, onSignedOut() {} });
+  await conversation.load();
+  const sent = conversation.send("go");
+  await until(() => tool.started.length === 2);
+  await conversation.stop();
+  await sent;
+  server.getChat = async () => {
+    throw new TypeError("Failed to fetch");
+  };
+  await conversation.continue();
+  assert.equal(tool.started.length, 2, "nothing ran");
+  assert.equal(server.posted.length, 1, "nothing was posted");
+  assert.deepEqual(conversation.state.outcome, { kind: "stopped", code: "tools", message: "", retryable: true });
 });

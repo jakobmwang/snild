@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import ipaddress
 import re
 
 from conftest import Api, open_api
@@ -7,20 +10,28 @@ from conftest import Api, open_api
 from snild.config import parse_config
 
 
+def policy(header: str) -> dict[str, str]:
+    return dict(d.strip().split(" ", 1) for d in header.split(";"))
+
+
 def test_the_page_has_a_strict_content_security_policy(client):
     response = client.http.get("/")
-    csp = dict(d.strip().split(" ", 1) for d in response.headers["content-security-policy"].split(";"))
+    csp = policy(response.headers["content-security-policy"])
+    frames = csp.pop("frame-src").split()
     assert csp == {
         "default-src": "'none'", "script-src": "'self'", "style-src": "'self'", "img-src": "'self' data: blob:",
         "font-src": "'self'", "connect-src": "'self'", "manifest-src": "'self'", "object-src": "'none'",
         "base-uri": "'self'", "form-action": "'self'", "frame-ancestors": "'none'",
     }
+    # It may embed exactly the two locked tool frames, nothing else.
+    assert sorted(re.sub(r"/assets/[0-9a-f]{12}/", "/assets/V/", f) for f in frames) == [
+        "http://localhost/assets/V/frames/code.html", "http://localhost/assets/V/frames/duckdb.html"]
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["referrer-policy"] == "no-referrer"
     assert response.headers["cache-control"] == "no-cache"
 
 
-def test_assets_live_under_a_content_version_and_cache_forever(client):
+def test_assets_live_under_a_content_version_and_are_cached_for_a_year(client):
     page = client.http.get("/").text
     script = re.search(r'src="(/assets/[0-9a-f]{12}/js/main\.js)"', page)
     assert script, page
@@ -137,10 +148,11 @@ def test_private_ip_origin_supports_setup_and_chat(config):
 
 
 def test_private_addresses_are_answered_and_names_and_public_addresses_are_not(anonymous):
+    just_past_172_16 = f"{ipaddress.IPv4Network('172.16.0.0/12').broadcast_address + 1}:8080"  # the range ends there
     for host in ("10.1.2.3:8080", "172.16.0.9", "172.31.255.1:80", "192.168.0.1:8080", "[fd12::1]:8080",
                  "127.0.0.2:8080", "localhost"):
         assert anonymous.http.get("/api/v1/health", headers={"host": host}).status_code == 200, host
-    for host in ("203.0.113.5", "172.32.0.1:8080", "100.64.0.1", "[2001:db8::1]", "169.254.1.1", "snild.example:8080",
+    for host in ("203.0.113.5", just_past_172_16, "100.64.0.1", "[2001:db8::1]", "169.254.1.1", "snild.example:8080",
                  "192.168.1.1.example", "0.0.0.0:8080", "[::ffff:192.168.1.1]"):
         response = anonymous.http.get("/api/v1/health", headers={"host": host})
         assert response.status_code == 421, host
@@ -267,3 +279,50 @@ def test_a_big_turn_body_is_read_only_for_someone_signed_in(client):
     assert response.status_code == 401 and response.json()["error"]["code"] == "signed_out"
     client.http.cookies.set("snild_session", token)
     assert client.http.post(f"/api/v1/chats/{chat['id']}/turns", json=body).status_code != 401
+
+
+def assets(client) -> str:
+    return re.search(r'src="(/assets/[0-9a-f]{12})/js/main\.js"', client.http.get("/").text).group(1)
+
+
+def test_the_tool_frames_are_locked_down(client):
+    base = assets(client)
+    own = f"http://localhost{base}"
+    code = client.http.get(f"{base}/frames/code.html")
+    header = code.headers["content-security-policy"]
+    csp = policy(header)
+    # Model code runs here (in a worker that inherits this policy): no address at all, so it can load or send
+    # nothing, not even to snild. Only the page's own inline script (by its digest) and blob: workers run.
+    assert "http" not in header and "'self'" not in header.replace("frame-ancestors 'self'", "")
+    boot = re.search(r"<script>(.*?)</script>", code.text, re.S).group(1)
+    digest = base64.b64encode(hashlib.sha256(boot.encode()).digest()).decode()
+    assert csp["script-src"] == f"'sha256-{digest}' blob:"
+    assert csp["connect-src"] == "'none'"
+    assert csp["default-src"] == "'none'" and csp["worker-src"] == "blob:" and csp["frame-ancestors"] == "'self'"
+    for directive in ("img-src", "style-src", "form-action", "base-uri", "object-src"):
+        assert csp[directive] == "'none'"
+
+    page = client.http.get(f"{base}/frames/duckdb.html")
+    csp = policy(page.headers["content-security-policy"])
+    assert csp["connect-src"] == f"{own}/vendor/duckdb/ {own}/vendor/duckdb-ext/"
+    importmap = re.search(r'<script type="importmap">(.*?)</script>', page.text, re.S).group(1)
+    digest = base64.b64encode(hashlib.sha256(importmap.encode()).digest()).decode()
+    assert f"'sha256-{digest}'" in csp["script-src"].split()
+    assert "'unsafe-eval'" not in csp["script-src"] and "'unsafe-inline'" not in csp["script-src"]
+
+
+def test_only_libraries_and_frame_scripts_may_be_loaded_by_the_frames(client):
+    """The DuckDB frame has no origin, so to it snild is another site: CORS and CORP open for exactly what it loads
+    (the page fetches d3 and linkedom for the code frame itself)."""
+    base = assets(client)
+    for path in ("vendor/d3/d3.min.js", "vendor/duckdb/duckdb-browser.mjs", "frames/duckdb-boot.js", "frames/arrow.js"):
+        response = client.http.get(f"{base}/{path}")
+        assert response.status_code == 200, path
+        assert response.headers["access-control-allow-origin"] == "*", path
+        assert response.headers["cross-origin-resource-policy"] == "cross-origin", path
+    for path in (f"{base}/js/main.js", f"{base}/demo/sales.csv", f"{base}/frames/code.html", "/api/v1/auth/status", "/"):
+        response = client.http.get(path)
+        assert "access-control-allow-origin" not in response.headers, path
+        assert response.headers["cross-origin-resource-policy"] == "same-origin", path
+    assert client.http.get(f"{base}/vendor/duckdb/duckdb-eh.wasm").headers["content-type"] == "application/wasm"
+    assert client.http.get(f"{base}/vendor/duckdb/duckdb-browser.mjs").headers["content-type"].startswith("text/javascript")

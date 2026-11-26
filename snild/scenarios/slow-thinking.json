@@ -1,5 +1,6 @@
 {
   "name": "slow-thinking",
+  "match": "\\bthink it through\\b",
   "description": "Slow reasoning, then a slow answer: for opening the reasoning while it streams.",
   "title": "Thinking slowly",
   "steps": [

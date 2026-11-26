@@ -217,7 +217,7 @@ export class ApiClient {
   async *#stream(response, signal) {
     const mediaType = (response.headers.get("content-type") || "").split(";", 1)[0].trim().toLowerCase();
     if (mediaType !== "application/x-ndjson") {
-      // A proxy's login page or error page arrived instead of a reply stream.
+      // Anything but a reply stream (an HTML error page, say) is refused.
       await response.body?.cancel().catch(() => {});
       throw new ApiError(response.status, { code: "unexpected_response", message: "The server's answer was not a reply stream." });
     }

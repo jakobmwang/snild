@@ -27,6 +27,7 @@ MAX_MESSAGE_CHARS = 100_000
 MAX_TOOL_RESULT_CHARS = 50_000  # a hard ceiling; the browser trims results for the model below this
 MAX_CALLS_PER_STEP = 16         # one turn carries at most this many tool results
 MAX_CALL_ID_CHARS = 200
+NOT_RUN = "Not run: a new message was sent instead."
 
 
 class TurnRejected(Exception):
@@ -70,9 +71,7 @@ def check_new_items(items: list[dict[str, Any]], new: list[dict[str, Any]]) -> N
     if kinds == {"user"}:
         if len(new) != 1:
             raise TurnRejected("invalid_items", "Send one user message per turn.")
-        if state == "tools":
-            raise TurnRejected("tools_pending", "The last step's tool calls need results (or to be discarded) first.")
-        return
+        return  # with calls still pending, close_skipped_calls answers them first
     if kinds == {"tool_result"}:
         if state != "tools":
             raise TurnRejected("no_tools_pending", "There are no tool calls waiting for results.")
@@ -84,6 +83,15 @@ def check_new_items(items: list[dict[str, Any]], new: list[dict[str, Any]]) -> N
             )
         return
     raise TurnRejected("invalid_items", "A turn holds either one user message or tool results, not both.")
+
+
+def close_skipped_calls(items: list[dict[str, Any]], new: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A new message while tool calls wait for results (the person stopped them, or closed the page, and wrote
+    again): each of those calls gets an error result first, saved together with the message, so the transcript
+    stays whole for every provider."""
+    if [it["type"] for it in new] != ["user"]:
+        return new
+    return [stored_tool_result(call_id, NOT_RUN, True) for call_id in pending_call_ids(items)] + new
 
 
 def stored_user_item(text: str) -> dict[str, Any]:

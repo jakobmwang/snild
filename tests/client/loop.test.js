@@ -48,6 +48,36 @@ test("tool calls are run and their results posted, all in one turn, at the new r
   assert.notEqual(api.posted[0].idempotencyKey, api.posted[1].idempotencyKey);
 });
 
+test("calls run one after another, each said when it waits, starts and ends", async () => {
+  const api = fakeApi([run(1), call("a", "slow"), call("b", "slow"), done(2, "tools", "tool_calls")], [run(4), done(5, "user")]);
+  const log = [];
+  const tools = new Map([["slow", async (c) => {
+    log.push(`start ${c.call_id}`);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    log.push(`end ${c.call_id}`);
+    return { content: c.call_id };
+  }]]);
+  await runTurn({ ...options(api, tools), onTool: (id, phase, result) => log.push(`${phase} ${id}${result ? ` = ${result.content}` : ""}`) });
+  assert.deepEqual(log, ["queued a", "queued b", "running a", "start a", "end a", "done a = a", "running b", "start b", "end b",
+    "done b = b"]);
+});
+
+test("Stop (the tool signal) ends the running call, skips the rest and posts nothing", async () => {
+  const api = fakeApi([run(1), call("a", "wait"), call("b", "wait"), done(2, "tools", "tool_calls")]);
+  const stop = new AbortController();
+  const started = [];
+  const tools = new Map([["wait", (c, signal) => new Promise((_, reject) => {
+    started.push(c.call_id);
+    signal.addEventListener("abort", () => reject(signal.reason));
+  })]]);
+  const turn = runTurn({ ...options(api, tools), toolSignal: stop.signal });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  stop.abort();
+  await assert.rejects(turn, (error) => error === stop.signal.reason);
+  assert.deepEqual(started, ["a"]);
+  assert.equal(api.posted.length, 1);
+});
+
 test("a tool this browser does not have, or one that throws, answers with an error", async () => {
   const api = fakeApi([run(1), call("a", "missing"), call("b", "broken"), done(2, "tools", "tool_calls")], [run(4), done(5, "user")]);
   const tools = new Map([["broken", async () => { throw new Error("boom"); }]]);

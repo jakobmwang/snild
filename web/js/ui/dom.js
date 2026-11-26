@@ -35,14 +35,25 @@ export function field(label, control, ...extra) {
   return el("div", { class: "field" }, el("label", { for: control.id }, label), control, ...extra);
 }
 
+/** One or two letters for an avatar. @param {string} name */
+export function initials(name) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const letters = words.length > 1 ? words[0][0] + words[words.length - 1][0] : (words[0] || "?")[0];
+  return letters.toUpperCase();
+}
+
 const ICONS = {
   plus: "M12 5v14M5 12h14",
   send: "M12 19V5M5 12l7-7 7 7",
   stop: "M7 7h10v10H7z",
   more: "M5 12h.01M12 12h.01M19 12h.01",
-  menu: "M4 6h16M4 12h16M4 18h16",
   close: "M6 6l12 12M18 6L6 18",
-  user: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 20a8 8 0 0 1 16 0",
+  back: "M19 12H5M12 19l-7-7 7-7",
+  down: "M12 5v14M19 12l-7 7-7-7",
+  copy: "M9 9h10v10H9zM5 15V5h10",
+  check: "M5 12l5 5L20 7",
+  search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-4.35-4.35",
+  sidebar: "M4 5h16v14H4zM9 5v14",
 };
 
 /**

@@ -6,8 +6,20 @@
     {
       "chunk_chars": 2,
       "chunk_delay_ms": 80,
-      "tool_calls": [{"name": "run_js", "input": {"code": "const rows = await sql('SELECT region, sum(amount) AS total FROM sales GROUP BY region ORDER BY total DESC');\nconsole.log(rows.length, 'regions');\nreturn rows;"}}]
+      "tool_calls": [
+        {
+          "name": "run_js",
+          "input": {
+            "code": "const rows = await sql(\"SELECT region, sum(amount) AS total FROM read_csv('demo/sales.csv') GROUP BY region ORDER BY total DESC\");\nconsole.log(rows.length, \"regions\");\nreturn rows;"
+          }
+        }
+      ]
     },
-    {"text": "Here are the totals per region."}
+    {
+      "expect_tool_result": {
+        "contains": "4 regions"
+      },
+      "text": "Here are the totals per region."
+    }
   ]
 }

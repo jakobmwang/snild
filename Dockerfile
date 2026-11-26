@@ -10,6 +10,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --require-hashes --no-deps -r requirements.txt
 
+# Browser libraries, fetched and checked against the SHA-256 digests in vendor.json.
+FROM base AS vendor
+WORKDIR /build
+COPY vendor.json .
+COPY scripts/fetch_vendor.py scripts/
+RUN python scripts/fetch_vendor.py
+
 # Tests: docker build --target test -t snild-test . && docker run --rm snild-test
 FROM base AS test
 COPY requirements-dev.txt .
@@ -18,6 +25,7 @@ COPY pyproject.toml .
 COPY snild/ snild/
 COPY web/ web/
 COPY tests/server/ tests/server/
+COPY --from=vendor /build/web/vendor/ web/vendor/
 # A hung test fails the run after ten minutes instead of blocking it.
 CMD ["timeout", "600", "python", "-m", "pytest", "-q"]
 
@@ -26,6 +34,7 @@ FROM base AS app
 COPY LICENSE ./
 COPY snild/ snild/
 COPY web/ web/
+COPY --from=vendor /build/web/vendor/ web/vendor/
 RUN useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin snild \
     && mkdir -p /app/data && chown snild:snild /app/data \
     && printf '#!/bin/sh\nexec python -m snild.admin "$@"\n' > /usr/local/bin/snild-admin \

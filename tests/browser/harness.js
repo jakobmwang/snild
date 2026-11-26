@@ -47,6 +47,11 @@ export function loggedSetupCode() {
   return [...log.matchAll(/enter the setup code ([A-Za-z0-9_-]+)/g)].at(-1)?.[1] ?? null;
 }
 
+/** What snild has logged (requests included). */
+export function serverLog() {
+  return execSync(LOGS, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
+}
+
 export function restartServer() {
   execSync(RESTART, { stdio: "ignore" });
 }
@@ -170,7 +175,13 @@ export async function assertClean(page, name = "page") {
   assert.deepEqual(page.problems, [], `${name} had problems`);
 }
 
-/** The assistant's last answer as plain text. */
+/** The assistant's last answer as plain text: what it wrote, without the page's own labels and buttons. */
 export function lastAnswer(page) {
-  return page.eval(() => [...document.querySelectorAll(".message-assistant")].at(-1)?.textContent ?? "");
+  return page.eval(() => {
+    const last = [...document.querySelectorAll(".message-assistant")].at(-1);
+    if (!last) return "";
+    const copy = /** @type {HTMLElement} */ (last.cloneNode(true));
+    for (const chrome of copy.querySelectorAll(".visually-hidden, .answer-actions")) chrome.remove();
+    return copy.textContent ?? "";
+  });
 }

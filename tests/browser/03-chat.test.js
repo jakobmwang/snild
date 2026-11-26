@@ -37,16 +37,16 @@ test("a reply streams in as Markdown, and the chat gets a title", async () => {
 
 test("whatever the model writes stays text: no markup, no scripts, no unsafe links", async () => {
   const page = await pageAs(browser, "alice");
-  await say(page, '<img src=x onerror="window.pwned=1"> <script>window.pwned=2</script> [click](javascript:window.pwned=3) ![i](https://example.invalid/x.png)');
+  await say(page, '<img src=x onerror="window.scriptRan=1"> <script>window.scriptRan=2</script> [click](javascript:window.scriptRan=3) ![i](https://example.invalid/x.png)');
   await waitForIdle(page);
   const result = await page.eval(() => ({
     images: document.querySelectorAll(".transcript img").length,
     scripts: document.querySelectorAll(".transcript script").length,
     jsLinks: [...document.querySelectorAll(".transcript a")].filter((a) => !/^(https?:|mailto:)/.test(a.getAttribute("href"))).length,
-    pwned: window.pwned ?? null,
+    scriptRan: window.scriptRan ?? null,
     shown: document.querySelector(".message-assistant").textContent,
   }));
-  assert.deepEqual({ ...result, shown: undefined }, { images: 0, scripts: 0, jsLinks: 0, pwned: null, shown: undefined });
+  assert.deepEqual({ ...result, shown: undefined }, { images: 0, scripts: 0, jsLinks: 0, scriptRan: null, shown: undefined });
   assert.match(result.shown, /<img src=x onerror=/);
   assert.match(result.shown, /Image: i/); // shown as a link, never loaded
   await assertClean(page, "hostile");
@@ -63,7 +63,7 @@ test("thinking is folded away, and the keyboard alone is enough", async () => {
   await page.press("Enter");
   await waitForIdle(page);
   assert.equal(await page.eval(() => document.querySelector(".thinking")?.open), false);
-  assert.match(await page.text(".thinking summary"), /Thinking/);
+  assert.match(await page.text(".thinking summary"), /^Thought/);
   assert.match(await lastAnswer(page), /0\.9/);
   assert.equal(await page.eval(() => document.activeElement.id), "message", "focus stays in the composer");
   await assertClean(page, "thinking");
@@ -121,9 +121,12 @@ test("dark mode is drawn from the same page", async () => {
   const page = await pageAs(browser, "alice");
   await page.setDarkMode(true);
   await sleep(100);
-  const background = await page.eval(() => getComputedStyle(document.body).backgroundColor);
-  assert.equal(background, "rgb(22, 22, 21)");
+  const dark = await page.eval(() => getComputedStyle(document.body).backgroundColor);
   await page.setDarkMode(false);
+  await sleep(100);
+  const light = await page.eval(() => getComputedStyle(document.body).backgroundColor);
+  const brightness = (rgb) => rgb.match(/\d+/g).slice(0, 3).reduce((sum, n) => sum + Number(n), 0);
+  assert.ok(brightness(dark) < 150 && brightness(light) > 600, `dark ${dark}, light ${light}`);
   await assertClean(page, "dark");
   await page.close();
 });

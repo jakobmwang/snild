@@ -8,7 +8,8 @@ Choosing a scenario, from the latest user message:
     2. otherwise the first scenario whose "match" pattern is found in the message;
     3. otherwise the built-in echo reply.
 The step played is the number of assistant replies since that user message, so a scenario continues
-naturally after the browser posts tool results.
+naturally after the browser posts tool results. A tool call with "code_from_message": true runs the user's
+message itself (without its marker) as run_js code: the browser tests use it to run code of their choosing.
 """
 
 from __future__ import annotations
@@ -145,9 +146,15 @@ class EmulatorProvider:
 
         calls = step.get("tool_calls", [])
         for n, call in enumerate(calls, start=1):
-            call_id = f"call_{scenario}_{step_index + 1}_{n}"
+            # Unique in the chat, also when the same scenario plays again: the message it answers is in the id.
+            call_id = f"call_{scenario}_{_last_user_message(request.transcript)[0]}_{step_index + 1}_{n}"
             yield ToolCallStart(call_id, call["name"])
-            arguments = call["raw_arguments"] if "raw_arguments" in call else json.dumps(call.get("input", {}))
+            if call.get("code_from_message"):
+                arguments = json.dumps({"code": MARKER.sub("", _last_user_message(request.transcript)[1]).strip()})
+            elif "raw_arguments" in call:
+                arguments = call["raw_arguments"]
+            else:
+                arguments = json.dumps(call.get("input", {}))
             for piece in _pieces(arguments, chunk * 4):
                 yield ToolCallDelta(call_id, piece)
                 await self._sleep(delay)

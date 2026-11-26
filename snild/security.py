@@ -1,7 +1,7 @@
 """Security headers on every response, and protection against other sites.
 
-Everything but sign-in needs a session (see auth.py), so this layer does not decide who may connect; it
-decides which names snild answers to and which pages may act in a user's name:
+Who may do what is decided by the API handlers (see auth.py); this layer decides which names snild answers to
+and which pages may act in a user's name:
 
 - Host. Without a public_url, snild accepts `localhost` and literal loopback or private IP addresses
   (127.0.0.0/8, ::1, 10/8, 172.16/12, 192.168/16, fc00::/7). A literal address cannot be pointed elsewhere by
@@ -31,6 +31,30 @@ Message = MutableMapping[str, Any]
 Receive = Callable[[], Awaitable[Message]]
 Send = Callable[[Message], Awaitable[None]]
 ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
+
+FRAME_COMMON = [
+    "default-src 'none'", "img-src 'none'", "style-src 'none'", "font-src 'none'", "media-src 'none'",
+    "object-src 'none'", "form-action 'none'", "base-uri 'none'", "frame-ancestors 'self'", "worker-src blob:",
+]
+
+
+def frame_csp(kind: str, base: str, hashes: list[str]) -> str:
+    """The policy of a locked tool frame. `hashes` are the SHA-256 digests of the page's inline scripts.
+
+    The code frame names no address at all: only its inline script and blob: workers run, and nothing may be
+    fetched, so the model's code (in a worker, which inherits this policy) cannot load or send anything, not even
+    to snild. The DuckDB frame runs no model code: it may load DuckDB's files from snild (`base` is the absolute
+    URL of the versioned assets, since the frame's opaque origin makes 'self' match nothing) and nothing else."""
+    inline = " ".join(f"'sha256-{digest}'" for digest in hashes)
+    if kind == "code":
+        script = f"{inline} blob:"
+        connect = "'none'"
+    else:
+        script = (f"{base}/frames/duckdb-boot.js {base}/frames/arrow.js {base}/vendor/duckdb/ {base}/vendor/arrow/"
+                  f" {inline} 'wasm-unsafe-eval'")
+        connect = f"{base}/vendor/duckdb/ {base}/vendor/duckdb-ext/"
+    return "; ".join([*FRAME_COMMON, f"script-src {script}", f"connect-src {connect}"])
+
 
 TRUSTED_PAGE_CSP = "; ".join([
     "default-src 'none'",
@@ -85,9 +109,11 @@ def is_private_literal(host: str) -> bool:
 
 
 class SecurityMiddleware:
-    def __init__(self, app: ASGIApp, public_url: PublicUrl | None = None):
+    def __init__(self, app: ASGIApp, public_url: PublicUrl | None = None, frames: tuple[str, ...] = ()):
+        """frames: the paths of the locked tool frames, the only pages the trusted page may embed."""
         self.app = app
         self.public_url = public_url
+        self.frames = frames
 
     def _site(self, host: tuple[str, int | None], path: str) -> tuple[str, bool] | None:
         """(snild's own origin, whether COOP works there) for this Host, or None if snild does not answer it."""
@@ -120,6 +146,7 @@ class SecurityMiddleware:
             await _reject(send, 421, "unknown_host", "Unrecognized Host header. Set public_url to accept this host.")
             return
         own_origin, opener_policy = site
+        scope["snild_origin"] = own_origin  # where the assets live, for the frames' policies (app.py)
         is_api = scope["path"].startswith("/api/")
         if is_api and headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none"):
             await _reject(send, 403, "cross_site_request", "This request came from another site.")
@@ -169,7 +196,9 @@ class SecurityMiddleware:
                 if opener_policy and OPENER_POLICY[0] not in present:
                     out.append(OPENER_POLICY)
                 if b"content-security-policy" not in present:
-                    out.append((b"content-security-policy", TRUSTED_PAGE_CSP.encode()))
+                    frame_src = " ".join(f"{own_origin}{path}" for path in self.frames)
+                    csp = f"{TRUSTED_PAGE_CSP}; frame-src {frame_src}" if frame_src else TRUSTED_PAGE_CSP
+                    out.append((b"content-security-policy", csp.encode()))
                 if is_api and b"cache-control" not in present:
                     out.append((b"cache-control", b"no-store"))
                 message["headers"] = out
@@ -216,7 +245,7 @@ DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
 def parse_host(value: str) -> tuple[str, int | None] | None:
-    """'localhost:8080' -> ('localhost', 8080), '[::1]' -> ('::1', None); anything else -> None.
+    """'localhost:8080' -> ('localhost', 8080), '[::1]' -> ('::1', None); invalid syntax -> None.
     An IP address comes back in its one canonical spelling ('[fd00:0::1]' and '[fd00::1]' are the same)."""
     match = HOST.fullmatch(value.strip().lower())
     if match is None:

@@ -3,7 +3,10 @@
 !requirements.txt
 !requirements-dev.txt
 !pyproject.toml
+!vendor.json
+!scripts/fetch_vendor.py
 !snild/
 !web/
 !tests/server/
+web/vendor/
 **/__pycache__/

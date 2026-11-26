@@ -1,6 +1,49 @@
 {
-  "about": "Third-party code the client tests use, with its licence file. Fetched by scripts/fetch_vendor.py into tests/vendor/ and checked against these SHA-256 digests. Never committed, never in the image.",
+  "about": "Browser libraries snild serves itself, with their licence files. Fetched by scripts/fetch_vendor.py into web/vendor/ and checked against these SHA-256 digests. Never committed; the container image bakes them in.",
   "libraries": [
+    {
+      "name": "duckdb-wasm",
+      "version": "1.32.0",
+      "license": "MIT",
+      "homepage": "https://github.com/duckdb/duckdb-wasm",
+      "files": [
+        {"path": "duckdb/duckdb-browser.mjs", "url": "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-browser.mjs", "sha256": "4f8c0bb3c23d1ec457a451cc27418597b9a40dd772cceacc436a2cb7b9a49c18"},
+        {"path": "duckdb/duckdb-browser-eh.worker.js", "url": "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-browser-eh.worker.js", "sha256": "f8ab72b6b90b3ad83077d47426d4a99d5d9a4c7e07cba1a2be37d655adc7c1ab"},
+        {"path": "duckdb/duckdb-eh.wasm", "url": "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist/duckdb-eh.wasm", "sha256": "4c221bfa59c11f24dbd750e70c90b9252eca6eec5633936e6a2ec766e55fd879"},
+        {"path": "duckdb/LICENSE", "url": "https://raw.githubusercontent.com/duckdb/duckdb-wasm/v1.32.0/LICENSE", "sha256": "7e17fd31249fa875cb3b1c5e05c6c3e99b75509f6a2804ca176c217834de1dcb"}
+      ]
+    },
+    {
+      "name": "duckdb-excel-extension",
+      "version": "duckdb v1.4.3 (wasm_eh)",
+      "license": "MIT",
+      "homepage": "https://github.com/duckdb/duckdb-excel",
+      "files": [
+        {"path": "duckdb-ext/v1.4.3/wasm_eh/excel.duckdb_extension.wasm", "url": "https://extensions.duckdb.org/v1.4.3/wasm_eh/excel.duckdb_extension.wasm", "sha256": "b2262171df7c810b0cddb2c86e6bbc320526e2ccba1c1395320cccbd488ccc50"},
+        {"path": "duckdb-ext/LICENSE", "url": "https://raw.githubusercontent.com/duckdb/duckdb-excel/253b1666aeb59329d13f1e1ae4547a0d6111db8e/LICENSE", "sha256": "7e17fd31249fa875cb3b1c5e05c6c3e99b75509f6a2804ca176c217834de1dcb"}
+      ]
+    },
+    {
+      "name": "apache-arrow",
+      "version": "17.0.0",
+      "license": "Apache-2.0",
+      "homepage": "https://github.com/apache/arrow-js",
+      "files": [
+        {"path": "arrow/Arrow.esnext.min.js", "url": "https://cdn.jsdelivr.net/npm/apache-arrow@17.0.0/Arrow.esnext.min.js", "sha256": "27acb81b1b1b5cf96785deca75da60d05e2267b84b59e8e7e26ea131c8ed587f"},
+        {"path": "arrow/LICENSE.txt", "url": "https://cdn.jsdelivr.net/npm/apache-arrow@17.0.0/LICENSE.txt", "sha256": "229dbe29e4e1344e95172f6f3a4277ec0da5c7850cb03897c47f3a24b7afce08"},
+        {"path": "arrow/NOTICE.txt", "url": "https://cdn.jsdelivr.net/npm/apache-arrow@17.0.0/NOTICE.txt", "sha256": "b62ea242642d3a18f1e29b0c1fe082415a6943fe158ee22b48cff3762f354009"}
+      ]
+    },
+    {
+      "name": "d3",
+      "version": "7.9.2",
+      "license": "ISC",
+      "homepage": "https://d3js.org",
+      "files": [
+        {"path": "d3/d3.min.js", "url": "https://cdn.jsdelivr.net/npm/d3@7.9.2/dist/d3.min.js", "sha256": "912111098ea99503a6f4967361d2bbdc9dbf58cf9c678c8e27e5b02d1a07f0c1"},
+        {"path": "d3/LICENSE", "url": "https://cdn.jsdelivr.net/npm/d3@7.9.2/LICENSE", "sha256": "2a6d2d5f32ba0b755ddbc1c833f766e30cdbe6ebe9a6d4e3e24427721f0b63d3"}
+      ]
+    },
     {
       "name": "linkedom",
       "version": "0.18.15",

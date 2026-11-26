@@ -86,11 +86,3 @@ class Provider(Protocol):
         """None if this provider can continue the transcript faithfully, otherwise the reason it cannot."""
         ...
 
-
-def foreign_state_reason(adapter: str, transcript: list[dict[str, Any]]) -> str | None:
-    """Default can_continue rule: opaque state written by another adapter cannot be replayed faithfully."""
-    for item in transcript:
-        state = item.get("provider_state")
-        if state and state.get("adapter") != adapter:
-            return "This chat holds model data that only the previous kind of model can read."
-    return None

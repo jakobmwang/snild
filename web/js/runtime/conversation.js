@@ -15,8 +15,9 @@
  *   streams of this chat never overlap and never overwrite each other.
  */
 
-import { addPendingMessage, applyEvent, confirmPendingMessages, dropPendingMessages, fromSnapshot } from "../core/chat.js";
-import { runTurn } from "../core/loop.js";
+import { addPendingMessage, applyEvent, confirmPendingMessages, dropPendingMessages, fromSnapshot, pendingCalls,
+  showToolPhase, stopTools } from "../core/chat.js";
+import { runTools, runTurn } from "../core/loop.js";
 import { ApiError, StreamInterrupted, newRequestKey } from "./api.js";
 import { loadUnsure, saveUnsure } from "./drafts.js";
 
@@ -90,6 +91,8 @@ export class Conversation {
     this.loaded = null; // resolves load() once the watcher has read the chat for the first time
     this.stopping = false;
     this.stopWanted = false; // Stop was pressed before the reply had started: stop it as soon as it does
+    /** Stop for the tools this tab runs for its current send or continue. @type {AbortController} */
+    this.toolStop = new AbortController();
 
     this.disposed = false;
     this.aborter = new AbortController();
@@ -130,6 +133,7 @@ export class Conversation {
     if (this.busy || this.disposed) return false;
     if (this.chatId && !this.state) return false; // the chat is not loaded (yet, or any more): nothing to add to
     this.sending = true;
+    this.toolStop = new AbortController();
     this.epoch++;
     this.watcher?.stop.abort(); // the send reads for itself from here on
     this.stopWanted = false;
@@ -162,7 +166,7 @@ export class Conversation {
       // A refusal (the request was wrong for the chat: 409, 422 …) means nothing was saved: forget the request.
       // Anything else (no answer, a server error, signed out) leaves it uncertain: keep it for the next try.
       if (!accepted.value && isRefusal(error)) this.#setUnsure(null);
-      await this.#settle(error, accepted.value);
+      if (!this.#toolsStopped(error)) await this.#settle(error, accepted.value);
     } finally {
       this.#finishSending();
     }
@@ -179,22 +183,42 @@ export class Conversation {
     if ((this.state?.run || this.nudged) && !this.disposed) void this.#watch(false);
   }
 
-  /** Ask the model to go on (the chat is awaiting the model: after an interruption, a failure or a stop). */
+  /**
+   * Go on: run the tool calls the chat waits for (after Stop, or a reload while they ran) and send their results,
+   * or ask the model to go on (after an interruption, a failure or a stop).
+   */
   async continue() {
     const state = this.state;
     if (this.busy || this.disposed || !state) return;
     this.sending = true;
+    this.toolStop = new AbortController();
     this.epoch++;
     this.watcher?.stop.abort();
     this.stopWanted = false;
     this.notice = null;
+    const before = state.outcome; // offered again if the calls cannot be checked with the server
     state.outcome = null;
     this.onChange("all");
     try {
-      await this.#drive({ key: newRequestKey(), items: [], revision: state.revision, modelId: this.#modelFor(state) },
+      /** @type {Step["items"]} */
+      let items = [];
+      if (state.awaiting === "tools") {
+        // Read what the server waits for now: another tab may have run these calls meanwhile, and only the
+        // whole batch it waits for can be posted. Without a fresh read nothing runs, and Continue stays offered.
+        if ((await this.#read(false)) !== "ok") {
+          if (this.state === state) state.outcome = before;
+          return;
+        }
+        const fresh = this.state;
+        if (!fresh || fresh.awaiting !== "tools" || fresh.run) return;
+        fresh.outcome = null;
+        items = await runTools(this.tools, pendingCalls(fresh), this.#toolSignal(), this.#onTool);
+      }
+      const now = /** @type {ChatState} */ (this.state);
+      await this.#drive({ key: newRequestKey(), items, revision: now.revision, modelId: this.#modelFor(now) },
         { value: false, notify: () => {}, sending: false }, null);
     } catch (error) {
-      await this.#settle(error, true);
+      if (!this.#toolsStopped(error)) await this.#settle(error, true);
     } finally {
       this.#finishSending();
     }
@@ -204,6 +228,7 @@ export class Conversation {
   async stop() {
     const run = this.state?.run;
     if (!run && this.sending) {
+      if (this.state?.awaiting === "tools") this.toolStop.abort(); // the code running now ends at once
       this.stopWanted = true; // it has not started yet: stop it the moment it does
       this.stopping = true;
       this.onChange("all");
@@ -257,6 +282,28 @@ export class Conversation {
     return this.modelId || state.chat.model_id || "";
   }
 
+  /** What ends the tools: Stop, or the chat closing. */
+  #toolSignal() {
+    return AbortSignal.any([this.aborter.signal, this.toolStop.signal]);
+  }
+
+  /** @type {import("../core/loop.js").ToolListener} */
+  #onTool = (callId, phase, result) => {
+    if (this.state && showToolPhase(this.state, callId, phase, result)) this.onChange("all");
+  };
+
+  /**
+   * Whether the send or continue ended because Stop ended its tools: then the calls show as stopped and the chat
+   * offers Continue; nothing went wrong.
+   * @param {unknown} error
+   */
+  #toolsStopped(error) {
+    const signal = this.toolStop.signal;
+    if (!signal.aborted || error !== signal.reason || this.disposed || !this.state) return false;
+    stopTools(this.state);
+    return true;
+  }
+
   /**
    * Run the agent loop from a step, keeping the state and the other tabs up to date. If the connection
    * drops, wait for the server and send the step that was under way again, with its own key (see above).
@@ -278,6 +325,8 @@ export class Conversation {
           tools: this.tools,
           newKey: newRequestKey,
           signal: this.aborter.signal,
+          toolSignal: this.#toolSignal(),
+          onTool: this.#onTool,
           onStep: (next) => {
             step = next;
           },

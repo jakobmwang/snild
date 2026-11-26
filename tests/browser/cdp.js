@@ -40,6 +40,8 @@ export class Browser {
       "--metrics-recording-only",
       "--password-store=basic",
       "--window-size=1280,900",
+      // A memory bomb in a test (run_js) runs out at 1 GB, not at the machine's limit.
+      "--js-flags=--max-old-space-size=1024",
       "about:blank",
     ];
     const proc = spawn(findChrome(), args, { stdio: ["ignore", "ignore", "pipe"] });

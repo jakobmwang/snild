@@ -116,3 +116,17 @@ def test_two_saves_at_once_never_bring_an_ended_sign_in_back(client):
     client.http.cookies.clear()
     assert client.sign_in("alice").status_code == 200
     assert not client.works(bob)
+
+
+def test_problems_are_named_per_setting(client):
+    response = change(client, session_idle_days=0, session_max_days="x")
+    assert response.status_code == 422
+    fields = response.json()["error"]["fields"]
+    assert set(fields) == {"session_idle_days", "session_max_days"} and all(fields.values())
+
+
+def test_the_admin_pages_are_served_and_nothing_else_under_admin(client):
+    for path in ("/admin", "/admin/people", "/admin/settings"):
+        response = client.http.get(path)
+        assert response.status_code == 200 and "<div id=\"app\"" in response.text, path
+    assert client.http.get("/admin/nope").status_code == 404

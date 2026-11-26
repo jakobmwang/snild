@@ -1,7 +1,7 @@
-"""What an admin may change in the browser (account menu, Settings), in one registry.
+"""What an admin may change in the browser (Admin, Settings), in one registry.
 
-The rule for what belongs here: policy that one organisation reasonably sets differently from another, and that
-cannot break snild's correctness or safety. What protects the server stays a constant in the code; what snild
+The rule for what belongs here: policy that reasonably differs from one installation to another, and that cannot
+break snild's correctness or safety. What protects the server stays a constant in the code; what snild
 needs before it runs (where data lives, its address, ports, keys) stays in config/snild.toml and the environment.
 A value lives in exactly one of those places.
 
@@ -28,10 +28,10 @@ class Setting:
 
 
 REGISTRY = (
-    Setting("session_idle_days", "Stay signed in while unused (days)",
+    Setting("session_idle_days", "Stay signed in while unused",
             "A sign-in ends after this many days without use. No limit: time unused never ends it; the "
             "maximum below still does.", 7, 1, 3650, True),
-    Setting("session_max_days", "Stay signed in at most (days)",
+    Setting("session_max_days", "Stay signed in at most",
             "A sign-in ends this many days after it began, used or not. A shorter limit makes a stolen sign-in "
             "useless sooner. No limit: it lasts until sign-out, a password change or the account is disabled; "
             "browsers keep a sign-in for 400 days at most.", 30, 1, 3650, True),
@@ -40,23 +40,27 @@ BY_KEY = {setting.key: setting for setting in REGISTRY}
 
 
 class SettingsError(ValueError):
-    pass
+    """Every problem, by setting key: the page shows each beside its field."""
+
+    def __init__(self, fields: dict[str, str]):
+        super().__init__("; ".join(f"{key}: {message}" for key, message in fields.items()))
+        self.fields = fields
 
 
 def validate(changes: dict[str, Any]) -> dict[str, int | None]:
-    """Check a {key: value} map against the registry; every problem is named in the error."""
-    problems = []
+    """Check a {key: value} map against the registry."""
+    problems = {}
     for key, value in changes.items():
         setting = BY_KEY.get(key)
         if setting is None:
-            problems.append(f"there is no setting {key!r}")
+            problems[key] = "There is no such setting."
         elif value is None:
             if not setting.nullable:
-                problems.append(f"{key} needs a value")
+                problems[key] = "This needs a value."
         elif isinstance(value, bool) or not isinstance(value, int) or not setting.min <= value <= setting.max:
-            problems.append(f"{key} is a whole number from {setting.min} to {setting.max}")
+            problems[key] = f"A whole number from {setting.min} to {setting.max}."
     if problems:
-        raise SettingsError("; ".join(problems))
+        raise SettingsError(problems)
     return dict(changes)
 
 

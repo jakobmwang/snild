@@ -1,5 +1,5 @@
 """snild-admin: recovery and scripting for snild's accounts. Day to day, admins manage people in the browser
-(account menu, People); this is for when no admin can sign in, and for tests and scripts.
+(Admin, People); this is for when no admin can sign in, and for tests and scripts.
 
     docker compose exec snild snild-admin <command> ...
 

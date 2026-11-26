@@ -12,9 +12,10 @@ import { text } from "./strings.js";
 export class ComposerView {
   /**
    * @param {{onSend: (text: string) => Promise<unknown>, onStop: () => void, onDraft: (text: string) => void,
-   *          maxChars: number}} options
+   *          maxChars: number, signal: AbortSignal}} options
+   *   signal: ends the listener on the visual viewport when the app closes
    */
-  constructor({ onSend, onStop, onDraft, maxChars }) {
+  constructor({ onSend, onStop, onDraft, maxChars, signal }) {
     this.onSend = onSend;
     this.onStop = onStop;
     this.onDraft = onDraft;
@@ -40,6 +41,8 @@ export class ComposerView {
         if (!this.running) this.element.requestSubmit();
       }
     });
+    // An on-screen keyboard shrinks the visible area: keep the box within what is left.
+    window.visualViewport?.addEventListener("resize", () => this.#grow(), { signal });
     this.element.addEventListener("submit", (event) => {
       event.preventDefault();
       if (this.running) this.onStop();
@@ -110,9 +113,14 @@ export class ComposerView {
     this.button.disabled = stop ? this.stopping : this.sending || !this.input.value.trim() || this.input.disabled;
   }
 
+  /** Grow with the text up to eight lines, and never past 40% of what is visible (an open keyboard counts). */
   #grow() {
     // CSSOM (not a style attribute), which the page's Content-Security-Policy allows.
+    const line = parseFloat(getComputedStyle(this.input).lineHeight) || 24;
+    const visible = window.visualViewport?.height ?? window.innerHeight;
+    const cap = Math.max(line * 2, Math.min(line * 8 + 12, visible * 0.4));
     this.input.style.height = "auto";
-    this.input.style.height = `${Math.min(this.input.scrollHeight, 320)}px`;
+    this.input.style.height = `${Math.min(this.input.scrollHeight, cap)}px`;
+    this.input.style.overflowY = this.input.scrollHeight > cap ? "auto" : "hidden";
   }
 }

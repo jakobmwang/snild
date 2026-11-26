@@ -40,6 +40,7 @@ from .transcript import (
     TurnRejected,
     awaiting,
     check_new_items,
+    close_skipped_calls,
     stored_tool_result,
     stored_user_item,
 )
@@ -227,12 +228,13 @@ class RunManager:
                 check_new_items(transcript, stored)
             except TurnRejected as e:
                 raise TurnError(409, e.code, e.message) from None
+            stored = close_skipped_calls(transcript, stored)
             reason = provider.can_continue(transcript)
             if reason:
                 raise TurnError(409, "model_switch_unsupported", reason)
 
-            first_message = stored[0]["text"] if chat["title_source"] == "none" and stored and \
-                stored[0]["type"] == "user" else None
+            first_message = stored[-1]["text"] if chat["title_source"] == "none" and stored and \
+                stored[-1]["type"] == "user" else None
             run_id = new_id("run")
             revision = expected_revision + len(stored)
             first = {"seq": 0, "type": "run", "run_id": run_id, "chat_id": chat_id, "revision": revision,

@@ -320,7 +320,7 @@ class Accounts:
         return code
 
     async def setup(self, peer: str, code: str, username: str, display_name: str | None,
-                    password: str) -> tuple[dict[str, Any], str]:
+                    password: str) -> tuple[dict[str, Any], Issued]:
         self.throttle.hit((("setup", peer), *SETUP_LIMIT))
         if not await self.store.setup_open():
             raise AuthError(409, "setup_done", "snild is already set up. Sign in instead.")
@@ -345,7 +345,7 @@ class Accounts:
     # --- signing in and out ------------------------------------------------------------------------------------
 
     async def sign_in(self, peer: str, username: str, password: str,
-                      replacing: str | None = None) -> tuple[dict[str, Any], str]:
+                      replacing: str | None = None) -> tuple[dict[str, Any], Issued]:
         """Check the password and start a session. `replacing`: the token the browser held until now, ended
         here, so signing in again (perhaps as someone else) leaves no live session behind."""
         name = username.strip().lower()[:64]
@@ -373,15 +373,15 @@ class Accounts:
         # The password must still be the one just checked: an admin's reset during the check wins.
         if not await self.store.create_session(session, user["password_hash"]):
             raise AuthError(*INVALID_CREDENTIALS)
-        self.throttle.forgive(attempt)  # only failures count: a household behind one address never locks
-        await self.sign_out(replacing)  # itself out by signing in
+        self.throttle.forgive(attempt)  # only failures count towards the limit (the ceiling counts every attempt)
+        await self.sign_out(replacing)
         return user, Issued(token, session["expires_at"])
 
     async def sign_out(self, token: str | None) -> None:
         if token and len(token) <= 100:
             await self.store.delete_session(digest(token))
 
-    async def change_password(self, signed_in: SignedIn, current: str, new: str) -> str:
+    async def change_password(self, signed_in: SignedIn, current: str, new: str) -> Issued:
         """Check the current password, set the new one, end every session, and start a fresh one."""
         new = normalise_password(new)  # a typo in the new one is not a guess at the current one
         attempt = self.throttle.hit((("password", signed_in.user_id), *PASSWORD_CHANGE_LIMIT))
@@ -406,7 +406,7 @@ class Accounts:
             raise AuthError(401, "signed_out", "Your session ended meanwhile. Sign in again.")
         return Issued(token, session["expires_at"])
 
-    # --- people (snild-admin) ----------------------------------------------------------------------------------
+    # --- people -----------------------------------------------------------------------------------------------
 
     async def create_user(self, username: str, display_name: str | None, password: str, role: str) -> dict[str, Any]:
         """Add someone. The first person is always an admin (somebody must be able to look after snild): the

@@ -1,0 +1,15 @@
+{
+  "about": "Third-party code the client tests use, with its licence file. Fetched by scripts/fetch_vendor.py into tests/vendor/ and checked against these SHA-256 digests. Never committed, never in the image.",
+  "libraries": [
+    {
+      "name": "linkedom",
+      "version": "0.18.15",
+      "license": "ISC",
+      "homepage": "https://github.com/WebReflection/linkedom",
+      "files": [
+        {"path": "linkedom/worker.js", "url": "https://cdn.jsdelivr.net/npm/linkedom@0.18.15/worker.js", "sha256": "0f4d0c736eac11c98c1d7b7a041a0c36c8d5aa706dfeae64d84747d8b333f3d3"},
+        {"path": "linkedom/LICENSE", "url": "https://cdn.jsdelivr.net/npm/linkedom@0.18.15/LICENSE", "sha256": "dc6d4961d8b6ee747231582ae9c53ce1d66bf76bc9f5a28f554c0e97210953bf"}
+      ]
+    }
+  ]
+}

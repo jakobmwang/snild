@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A pull request's older builds are cancelled; every build of main runs, each in its own group.
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: Server tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the test image
+        run: docker build --target test -t snild-test .
+      - name: Run the tests
+        run: docker run --rm snild-test
+
+  client:
+    name: Client tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Fetch the pinned browser libraries (the view tests use linkedom)
+        run: python3 scripts/fetch_vendor.py
+      - name: Run the tests
+        run: node --test "tests/client/**/*.test.js"
+
+  image:
+    name: Image smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SNILD_ENABLE_EMULATOR: "1"
+      SNILD_TEST_INSTANCE: "1"  # a disposable snild: the test adds accounts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build and start snild with the test model
+        run: docker compose up -d --build --wait
+      - name: Check the page and one saved turn
+        run: python3 scripts/smoke_test.py
+      - name: Stop snild in the middle of a reply, then start it again
+        run: |
+          state=$(mktemp -d)  # private (0700): the ids file holds the test account's password
+          trap 'rm -rf "$state"' EXIT
+          python3 scripts/smoke_test.py hold-slow "$state/ids.json" & holder=$!
+          for _ in $(seq 150); do  # at most 30 s
+            [ -s "$state/ids.json" ] && break
+            kill -0 $holder 2>/dev/null || { echo "the slow reply never started"; exit 1; }
+            sleep 0.2
+          done
+          [ -s "$state/ids.json" ]
+          docker compose stop
+          test "$(docker compose ps -a --format '{{.ExitCode}}')" = 0  # stopped cleanly, not killed
+          wait $holder
+          docker compose up -d --wait
+          python3 scripts/smoke_test.py after-restart "$state/ids.json"
+      - name: Show the log if anything failed
+        if: failure()
+        run: docker compose logs | sed -E 's/(setup=|setup code )[A-Za-z0-9_-]+/\1<redacted>/g'
+
+  browser:
+    name: Browser tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      SNILD_ENABLE_EMULATOR: "1"
+      SNILD_TEST_INSTANCE: "1"  # a disposable snild: the tests add accounts
+      SNILD_BIND: "0.0.0.0"  # published on every interface, so Chrome can test a non-loopback http origin
+      SNILD_EXPECT_SETUP: "1"  # each browser starts on a fresh instance: setup must be tested, not skipped
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Build and start snild with the test model
+        run: docker compose up -d --build --wait
+      - name: Chrome (non-loopback http origin, not a secure context)
+        run: |
+          export SNILD_URL="http://$(hostname -I | awk '{print $1}'):8080"
+          export SNILD_CHROME="$(command -v google-chrome)"
+          node --test --test-concurrency=1 "tests/browser/*.test.js"
+      - name: Edge (loopback http origin), on a fresh instance so it also tests setup
+        run: |
+          docker compose down -v
+          docker compose up -d --wait
+          export SNILD_URL="http://127.0.0.1:8080"
+          export SNILD_CHROME="$(command -v microsoft-edge)"
+          node --test --test-concurrency=1 "tests/browser/*.test.js"
+      - name: Show the log if anything failed
+        if: failure()
+        run: docker compose logs | sed -E 's/(setup=|setup code )[A-Za-z0-9_-]+/\1<redacted>/g'

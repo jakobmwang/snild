@@ -1,0 +1,8 @@
+{
+  "name": "refusal",
+  "description": "The model declines to answer.",
+  "title": "Declined",
+  "steps": [
+    {"text": "I can't help with that request.", "finish": "refusal"}
+  ]
+}

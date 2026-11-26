@@ -1,0 +1,15 @@
+{
+  "name": "run-js",
+  "description": "One run_js call; the reply depends on the browser actually running it.",
+  "title": "Summing with code",
+  "steps": [
+    {
+      "text": "I'll add those up with a little code.",
+      "tool_calls": [{"name": "run_js", "input": {"code": "const values = [12, 30, 58];\nconsole.log('values:', values.length);\nreturn values.reduce((a, b) => a + b, 0);"}}]
+    },
+    {
+      "expect_tool_result": {"contains": "100"},
+      "text": "The total is **100**."
+    }
+  ]
+}

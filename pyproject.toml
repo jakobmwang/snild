@@ -1,0 +1,33 @@
+[project]
+name = "snild"
+dynamic = ["version"]
+description = "A self-hosted AI chat in the browser (early preview with a scripted test model)."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.120",
+    "uvicorn>=0.38",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.28"]  # httpx: FastAPI's TestClient
+
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "snild.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["snild*"]
+
+[tool.setuptools.package-data]
+snild = ["tools.json", "system_prompt.md", "scenarios/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/server"]
+# Starlette's TestClient warns that it prefers httpx2; the tests use httpx, which works the same here.
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]

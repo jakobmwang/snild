@@ -1,0 +1,13 @@
+{
+  "name": "slow",
+  "description": "A slow first token and a long, slow reply: for testing Stop, reload and a second tab.",
+  "title": "A slow answer",
+  "steps": [
+    {
+      "first_token_delay_ms": 1500,
+      "chunk_chars": 4,
+      "chunk_delay_ms": 120,
+      "text": "This answer arrives slowly on purpose, a few letters at a time, so there is plenty of time to press Stop, to reload the page, or to open the same chat in another tab and watch it there. It keeps going for a while longer, sentence after sentence, long enough that stopping or restarting the server catches it in the middle, which is exactly the moment worth testing. Almost done now; just a few more words, and then it will finally end here, in another tab too."
+    }
+  ]
+}

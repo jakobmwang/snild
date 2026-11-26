@@ -1,0 +1,12 @@
+{
+  "name": "thinking",
+  "description": "The model reasons first (shown folded away), then answers.",
+  "title": "Thinking, then answering",
+  "steps": [
+    {
+      "thinking": "The user wants to know which number is larger. 0.9 has nine tenths; 0.11 has one tenth and one hundredth. So 0.9 is larger.",
+      "text": "**0.9** is larger than 0.11: nine tenths beats one tenth and a bit.",
+      "state": {"signature": "opaque data the model needs back unchanged"}
+    }
+  ]
+}

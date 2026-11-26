@@ -1,0 +1,9 @@
+*
+!LICENSE
+!requirements.txt
+!requirements-dev.txt
+!pyproject.toml
+!snild/
+!web/
+!tests/server/
+**/__pycache__/

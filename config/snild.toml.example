@@ -1,0 +1,40 @@
+# snild configuration. Copy this file to config/snild.toml, edit it and restart snild.
+# Every key is optional. snild refuses to start if a key is unknown or a value is wrong, and says why.
+
+[server]
+# Where chats are stored. In the container this is the snild-data volume.
+# data_dir = "data"
+
+# The origin people open snild at: scheme, host and optional port. When set, snild accepts only this Host
+# and Origin. When unset, it accepts localhost and literal loopback or private IP addresses.
+# A nonempty SNILD_PUBLIC_URL environment variable overrides this.
+# public_url = "http://snild.example.org:8080"
+
+# Addresses or networks of the directly connecting peers whose X-Forwarded-For header gives the client
+# address used for sign-in limits. Empty by default: the connecting address is used.
+# A nonempty SNILD_TRUSTED_PROXIES environment variable (comma-separated) overrides this.
+# trusted_proxies = ["127.0.0.1"]
+
+[llm]
+# The model new chats start with (an id from [[models]] below). Default: the first visible model.
+# default_model = "main"
+
+# The model that writes chat titles. A small, fast model is ideal. Default: the chat's own model.
+# title_model = "main"
+
+# Models people can choose. Add one [[models]] block per model.
+# Connections to model APIs (provider = "openai" for OpenAI-compatible APIs, provider = "anthropic")
+# arrive in a later version. Until then, try snild with the test model:
+#   SNILD_ENABLE_EMULATOR=1 docker compose up -d
+#
+# [[models]]
+# id = "main"                         # used in [llm] and stored with each chat
+# name = "Main model"                 # what people see in the model picker
+# provider = "openai"
+# base_url = "http://models.example:8000/v1"
+# api_key = "env:SNILD_MAIN_KEY"      # always the name of an environment variable, never the key itself
+# model = "the-model-name"            # the name the API expects
+# context_window = 128000
+# max_output_tokens = 16000
+# vision = false
+# hidden = false                      # true: usable as title_model, but not offered to people

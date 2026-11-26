@@ -1,0 +1,9 @@
+{
+  "name": "malformed-call",
+  "description": "The model sends broken tool arguments; the server answers the call with an error itself.",
+  "title": "A broken tool call",
+  "steps": [
+    {"tool_calls": [{"name": "run_js", "raw_arguments": "{\"code\": \"return 1"}]},
+    {"text": "Sorry, my tool call was malformed. Let me answer directly: 1."}
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "about": "The model's tools. The server offers the enabled ones to the model; the browser runs them. One source for both: a contract test checks that the browser runs exactly the enabled tools. A tool is enabled once the browser can run it.",
+  "guidance": "Use your tools whenever data, calculation or a visual would make the answer better. Look at the data before you draw conclusions, and check your own output when a tool reports back.",
+  "tools": [
+    {
+      "name": "run_js",
+      "enabled": false,
+      "description": "Run JavaScript (top-level await allowed) in a sandbox with no network. Available: fs.readFile(name) and fs.readdir() for this chat's files (PDF and Word arrive as text), sql(query) for DuckDB over CSV, Excel and Parquet files, d3, and a document object so ordinary d3 code produces SVG or HTML. You get back the value of a top-level return statement and anything written with console.log.",
+      "requires": [],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "string", "description": "The JavaScript to run."}
+        },
+        "required": ["code"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "render_html",
+      "enabled": false,
+      "description": "Show the user a page you wrote: a whole HTML document or a fragment, with its scripts running and d3 available. There is no network. You get back any errors and a short summary of what appeared, so you can check your work.",
+      "requires": [],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "html": {"type": "string", "description": "The HTML to show."}
+        },
+        "required": ["html"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "fetch_url",
+      "enabled": false,
+      "description": "Fetch a web page or file and get it back as readable text. The user may be asked to approve the request first.",
+      "requires": ["web"],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "url": {"type": "string", "description": "The URL to fetch."}
+        },
+        "required": ["url"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "rate-limit",
+  "description": "The model API refuses with a rate limit after a few characters; retrying is allowed.",
+  "title": "Rate limited",
+  "steps": [
+    {"text": "Let me think about", "error": {"code": "rate_limit", "message": "The model is busy. Try again in a moment.", "retryable": true, "after_chars": 8}}
+  ]
+}

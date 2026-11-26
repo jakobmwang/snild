@@ -1,0 +1,14 @@
+{
+  "name": "mixed-calls",
+  "description": "One good tool call and one broken one in the same step: the browser runs the good one, the server answers the broken one.",
+  "title": "One good call, one broken",
+  "steps": [
+    {
+      "tool_calls": [
+        {"name": "run_js", "input": {"code": "return 2 + 2;"}},
+        {"name": "run_js", "raw_arguments": "{\"code\": "}
+      ]
+    },
+    {"expect_tool_result": {"contains": "4"}, "text": "The good call gave 4."}
+  ]
+}

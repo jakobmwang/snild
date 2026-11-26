@@ -1,0 +1,14 @@
+{
+  "name": "slow-thinking",
+  "description": "Slow reasoning, then a slow answer: for opening the reasoning while it streams.",
+  "title": "Thinking slowly",
+  "steps": [
+    {
+      "first_token_delay_ms": 300,
+      "chunk_chars": 6,
+      "chunk_delay_ms": 60,
+      "thinking": "First I list what is known. Then I compare the two numbers digit by digit, starting from the tenths. Nine tenths against one tenth: the first is larger, whatever follows.",
+      "text": "**0.9** is larger than 0.11. Nine tenths beat one tenth, and the hundredths cannot change that."
+    }
+  ]
+}

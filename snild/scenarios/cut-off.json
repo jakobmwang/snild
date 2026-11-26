@@ -1,0 +1,8 @@
+{
+  "name": "cut-off",
+  "description": "The reply stops because it reached the output limit.",
+  "title": "Cut off",
+  "steps": [
+    {"text": "Here is a very long list: one, two, three, four, five, six, seven, eight", "finish": "max_tokens"}
+  ]
+}

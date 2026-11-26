@@ -1,0 +1,11 @@
+{
+  "name": "markdown",
+  "description": "A plain reply that uses most of Markdown: headings, emphasis, lists, a table, code and links.",
+  "match": "\\bmarkdown\\b",
+  "title": "Markdown sampler",
+  "steps": [
+    {
+      "text": "## Quarterly sales at a glance\n\nSales grew **12%** on the previous quarter, driven by *online orders*.\n\n- Online: 4,210 orders\n- In store: 1,980 orders\n  - Weekends made up 41% of these\n\n1. Check the returns rate\n2. Compare with last year\n\n| Region | Orders | Change |\n|:-------|-------:|-------:|\n| North  | 2,340  | +9%    |\n| South  | 3,850  | +14%   |\n\n```sql\nSELECT region, count(*) AS orders FROM sales GROUP BY region;\n```\n\n> Figures are rounded.\n\nSee [the method](https://example.org/method) for details, or write to <mailto:team@example.org>."
+    }
+  ]
+}

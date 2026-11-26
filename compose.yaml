@@ -1,0 +1,35 @@
+# Start snild with its scripted test model (the only model in this preview):
+#   SNILD_ENABLE_EMULATOR=1 docker compose up -d --wait
+# then open http://localhost:8080 and enter the setup code shown by: docker compose logs snild
+services:
+  snild:
+    build:
+      context: .
+      target: app
+    image: snild:local
+    # Published on loopback (127.0.0.1) unless SNILD_BIND names another host address.
+    ports:
+      - "${SNILD_BIND:-127.0.0.1}:${SNILD_PUBLISH_PORT:-8080}:8080"
+    environment:
+      SNILD_ENABLE_EMULATOR: ${SNILD_ENABLE_EMULATOR:-0}
+      SNILD_PUBLIC_URL: ${SNILD_PUBLIC_URL:-}
+      SNILD_TRUSTED_PROXIES: ${SNILD_TRUSTED_PROXIES:-}
+    # Model API keys go in .env (never committed), named by api_key = "env:..." in config/snild.toml.
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./config:/app/config:ro
+      - snild-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 20s
+    restart: unless-stopped
+
+volumes:
+  snild-data:

@@ -1,0 +1,17 @@
+{
+  "name": "two-calls",
+  "description": "Two tool calls in one step; the browser must return both results in one turn.",
+  "title": "Two things at once",
+  "steps": [
+    {
+      "tool_calls": [
+        {"name": "run_js", "input": {"code": "return 6 * 7;"}},
+        {"name": "run_js", "input": {"code": "return 'abc'.toUpperCase();"}}
+      ]
+    },
+    {
+      "expect_tool_result": {"contains": "ABC"},
+      "text": "Both ran: 42 and ABC."
+    }
+  ]
+}

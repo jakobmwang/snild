@@ -1,0 +1,13 @@
+{
+  "name": "slow-call",
+  "description": "A tool call whose arguments arrive slowly: for testing Stop while code is being written.",
+  "title": "Slowly written code",
+  "steps": [
+    {
+      "chunk_chars": 2,
+      "chunk_delay_ms": 80,
+      "tool_calls": [{"name": "run_js", "input": {"code": "const rows = await sql('SELECT region, sum(amount) AS total FROM sales GROUP BY region ORDER BY total DESC');\nconsole.log(rows.length, 'regions');\nreturn rows;"}}]
+    },
+    {"text": "Here are the totals per region."}
+  ]
+}

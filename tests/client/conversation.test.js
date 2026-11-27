@@ -62,6 +62,35 @@ test("a message whose every answer was lost is resent as the very same request, 
   assert.deepEqual([...revisions], [0], "always the revision the message was first sent at");
 });
 
+test("a message names the files it attaches; the same text with other files is a new request", async () => {
+  const server = fakeServer({ failures: 4 });
+  const conversation = open(server);
+  await conversation.load();
+  const a = { id: "file_a", name: "a.csv", size: 1 };
+  await conversation.send("look", () => {}, [a]);
+  assert.deepEqual(server.posted[0].items, [{ type: "user", text: "look", file_ids: ["file_a"] }]);
+  server.failures = 0;
+  await conversation.send("look", () => {}, []);
+  assert.notEqual(server.posted.at(-1).idempotencyKey, server.posted[0].idempotencyKey);
+  assert.deepEqual(server.posted.at(-1).items, [{ type: "user", text: "look" }]);
+});
+
+test("a new chat is made once, however many ask for it at once", async () => {
+  let made = 0;
+  const server = { ...fakeServer(), async createChat() {
+    made++;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return { chat: { ...chat, id: "chat_new" } };
+  } };
+  const created = [];
+  const conversation = new Conversation({ api: server, userId: "u1", chatId: null, modelId: "m", sync: null,
+    onChange() {}, onSignedOut() {}, onCreated: (id) => created.push(id) });
+  assert.deepEqual(await Promise.all([conversation.ensureChat(), conversation.ensureChat()]), ["chat_new", "chat_new"]);
+  assert.equal(made, 1);
+  assert.deepEqual(created, ["chat_new"]);
+  assert.equal(await conversation.ensureChat(), "chat_new");
+});
+
 test("a different message is a new request", async () => {
   const server = fakeServer({ failures: 4 });
   const conversation = open(server);

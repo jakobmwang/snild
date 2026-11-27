@@ -1,13 +1,14 @@
 # The browser–server protocol (API v1)
 
-Everything lives under `/api/v1/`. Requests and answers are JSON, except turns, which stream
-[NDJSON](https://github.com/ndjson/ndjson-spec): one JSON object per line.
+Everything lives under `/api/v1/`. Requests and answers are JSON, except that turns and run events stream
+[NDJSON](https://github.com/ndjson/ndjson-spec) (one JSON object per line), and file uploads and downloads
+carry the file's raw bytes.
 
 ## Rules for every request
 
 - **Signed in.** Everything except `health`, `auth/status`, `auth/setup`, `auth/sign-in` and `auth/sign-out`
-  needs a session cookie, or it gets `401 signed_out`. Someone else's chat or run is `404 not_found`, exactly
-  like one that does not exist.
+  needs a session cookie, or it gets `401 signed_out`. Someone else's chat, run or file is `404 not_found`,
+  exactly like one that does not exist.
 - **Known hosts only.** Without `public_url`, snild accepts a `Host` of `localhost` or a literal loopback or
   private IP address (127.0.0.0/8, ::1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7). With `public_url`,
   it accepts only that host and port (and a loopback address on `/health`, for the container's probe). Anything else gets `421 unknown_host`. Literal addresses cannot be re-pointed by DNS,
@@ -25,8 +26,9 @@ Everything lives under `/api/v1/`. Requests and answers are JSON, except turns, 
   ```
 
 - API answers are never cached (`Cache-Control: no-store`).
-- A request body may be at most 16 MiB (`413 too_large`). An unexpected failure is `500 internal`, in the same
-  error shape.
+- A request body may be at most 64 KiB, except a turn (16 MiB) and a file upload (100 MiB) (`413 too_large`); an
+  upload also has the admins' limits (`413 file_too_large`, `413 storage_full`, below). An unexpected failure is
+  `500 internal`, in the same error shape.
 
 ## Signing in
 
@@ -46,10 +48,11 @@ Everything lives under `/api/v1/`. Requests and answers are JSON, except turns, 
 - Sign-in and setup are limited: `429 too_many_attempts` with `retry_after` (seconds). Setup allows 10
   attempts per client address per 15 minutes. Failed sign-ins count 10 per address and username, and 30 per
   address, per 15 minutes; all sign-ins, right or wrong, have a higher ceiling (60 and 120).
-- A request body is at most 64 KiB, except a turn's (16 MiB): nothing larger is read before sign-in.
+- Nothing larger than 64 KiB (a turn, or a file upload) is read before sign-in.
 - The page sends `X-Snild-User: <user id>` with every request once it knows who it was opened for. Tabs share
   one cookie, so if someone else has since signed in on another tab, a request that needs a session (and sign-out) is
-  refused with `401 account_changed` instead of acting as them.
+  refused with `401 account_changed` instead of acting as them. A download link sends only the cookie; the file's
+  owner is checked as for any request.
 - An open stream is checked against its session every 5 seconds. When the session ends, the stream just
   stops (without a final event); the run itself goes on.
 
@@ -73,11 +76,13 @@ An admin cannot disable themselves, take away their own admin rights or set thei
 
 | Method and path | What it does |
 |:--|:--|
-| `GET /admin/settings` | `{settings: [{key, label, help, default, min, max, nullable, value}]}`: what an admin may change. `value` `null` means no limit. |
-| `PATCH /admin/settings` | `{key: value, …}`, only what changed: checked as a whole (`422 invalid_setting` names every problem; nothing is saved then), in force at once. Answers like `GET`. |
+| `GET /admin/settings` | `{settings: [{key, label, help, default, min, max, nullable, unit, group, value}]}`: what an admin may change, with the unit it is in and the group it is shown in. `value` `null` means no limit. |
+| `PATCH /admin/settings` | `{key: value, …}`, only what changed: checked as a whole (`422 invalid_setting` names every problem; nothing is saved then), in force at once (an upload already under way keeps the limits it started with). Answers like `GET`. |
 
 Today: `session_idle_days` and `session_max_days`, whole days from 1 to 3650 or `null`. Tightening a limit ends
-the sessions now past it; relaxing one never brings back a session that had already ended.
+the sessions now past it; relaxing one never brings back a session that had already ended. `file_max_mb` (the
+largest file, 1 to 100 MiB, default 25) and `person_files_max_mb` (all of one person's files, 1 to 1,000,000 MiB,
+default 1000); lowering either leaves the files already there.
 
 ## Endpoints
 
@@ -91,14 +96,25 @@ the sessions now past it; relaxing one never brings back a session that had alre
 | `PATCH /chats/{chat}` | `{"title": "…"}`: rename. A title someone chose is never overwritten by the model's. The transcript's revision is unchanged. |
 | `DELETE /chats/{chat}` | Delete the chat with everything in it. `409 run_active` (with `run_id`) while a reply is being written: stop it first. |
 | `POST /chats/{chat}/turns` | Post the next items and stream the reply (below). |
+| `GET /chats/{chat}/files` | `{files: [{id, name, origin, size, sha256, created_at}]}`, newest first. `origin` is `person` or `model`: who added it, a label the page gives. |
+| `POST /chats/{chat}/files` | Add a file: the body is its bytes, `X-Snild-Filename` its name (percent-encoded UTF-8; never in a URL: file URLs carry ids), `X-Snild-Origin` `person` (default) or `model`. `201 {file}`. A name taken in the chat gets a number (`a (2).csv`): nothing is ever replaced. Refusals: `404` (not the person's chat, checked before the body is read), `422 invalid_name` or `invalid_origin`, `413 file_too_large` (with `limit_bytes`), `413 storage_full` (with `limit_bytes` and `remaining_bytes`), `413 too_many_files` (1,000 in a chat, 10,000 for a person), `408 upload_timeout` (60 s without a byte, or 10 minutes in all), `503 busy` (retryable). |
+| `GET /chats/{chat}/files/{file}` | The bytes, always `application/octet-stream` as an attachment (`Content-Disposition` with an ASCII stand-in and the UTF-8 name), with `nosniff`, `Content-Security-Policy: sandbox` and `Cache-Control: private, no-store`. |
+| `DELETE /chats/{chat}/files/{file}` | Delete a file. Messages that attached it keep its name and size. |
 | `GET /chats/{chat}/runs/{run}/events?after=N` | Follow a run, skipping the `N` events already seen: a reloaded tab or a second tab. Ended runs are replayed; past the end the stream is empty. One exception: a run cut off by a crash keeps only its first and last events, and the last one says `events_lost: true`; a follower whose `N` reaches past them gets just that last event and still learns how the run ended. |
 | `POST /chats/{chat}/runs/{run}/cancel` | Stop a run. Answers its final status. |
+
+A file name is NFC, 1 to 255 UTF-8 bytes, not `.` or `..`, without `/` or `\`, without characters of the Unicode
+categories Cc, Cf, Cs, Zl and Zp, and without spaces at either end.
 
 ## The transcript
 
 The server owns the transcript; the browser only ever posts what is new. Each saved item has an `id`:
 
-- `user` `{text}`
+- `user` `{text, files?}`: `files` `[{id, name, size}]` are the chat's files it attached, as they were when it was
+  sent (posted as `file_ids`, at most 100, each once; an id that is not one of the chat's files is `422
+  unknown_files`). A retry with the same request key replays the message as it was sent, even if a file has been
+  deleted since. A model adapter adds the files' names and sizes after the text, as one line (the test model's echo
+  shows it).
 - `assistant` `{model_id, text, thinking, tool_calls: [{id, name, input, arguments}], status}`:
   `status` is `complete` or `cancelled`
 - `tool_result` `{call_id, content, is_error}`
@@ -170,13 +186,13 @@ result is a JSON object in the `content` text, always within the 50,000-characte
 
     {"run_js": 1, "status": "ok", "seconds": 0.42, "error": "...", "note": "...",
      "value": "...", "console": "...", "svg": "<svg ...>",
-     "hidden": [{"file": "report.pdf", "elements": 1, "source": "sha256:..."}]}
+     "hidden": [{"file": "report.pdf", "elements": 1, "source": "sha256:...", "id": "file_..."}]}
 
 `status` is `ok` or `error`; `value` is what the code returned, as text (JSON for data); `svg` is a returned SVG element, kept whole or left
 out (a `note` then says so); a text too long to fit is cut, and `note` says which. `is_error` is true when
 `status` is `error`. `hidden` (at most 20 entries) names each PDF the code read whose hidden text was kept from
-it: how many hidden elements it had, and the digest of the PDF, so that the browser shows that text only from the
-same file.
+it: how many hidden elements it had, the digest of the PDF and, for a chat's file, its `id`, so that the browser
+shows that text only from the same file.
 
 Stop while tools run ends the running call at once and posts nothing: the chat keeps waiting for those results
 (`awaiting: "tools"`). Continue runs all of the step's calls again; a new message instead closes them (above).

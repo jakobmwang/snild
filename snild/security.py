@@ -88,7 +88,9 @@ OPENER_POLICY = (b"cross-origin-opener-policy", b"same-origin")
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 MAX_BODY_BYTES = 16 * 1024 * 1024  # a whole turn of tool results fits; anything bigger is refused unread
 MAX_SMALL_BODY_BYTES = 64 * 1024   # every other request (sign-in, renames, …): nothing big is read before sign-in
+MAX_FILE_BODY_BYTES = 100 * 1024 * 1024  # an upload: files.HARD_MAX_FILE_BYTES; the route enforces the admin's limit
 TURN_PATH = re.compile(r"/api/v1/chats/[^/]+/turns")
+FILES_PATH = re.compile(r"/api/v1/chats/[^/]+/files")  # POST: an upload, streamed by its route, never buffered here
 HEALTH_PATH = "/api/v1/health"
 PRIVATE_NETWORKS = tuple(ipaddress.ip_network(n) for n in (
     "127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"))
@@ -161,7 +163,9 @@ class SecurityMiddleware:
         if not (length.isascii() and length.isdigit()):
             await _reject(send, 400, "bad_request", "The Content-Length header is not a number.")
             return
-        limit = MAX_BODY_BYTES if TURN_PATH.fullmatch(scope["path"]) else MAX_SMALL_BODY_BYTES
+        upload = scope["method"] == "POST" and FILES_PATH.fullmatch(scope["path"]) is not None
+        limit = MAX_FILE_BODY_BYTES if upload else MAX_BODY_BYTES if TURN_PATH.fullmatch(scope["path"]) \
+            else MAX_SMALL_BODY_BYTES
         if int(length) > limit:
             await _reject(send, 413, "too_large", "The request is too large.")
             return
@@ -176,6 +180,11 @@ class SecurityMiddleware:
                 # Only someone signed in may send a big body: nothing large is read for anyone else.
                 await _reject(send, 401, "signed_out", "Sign in to continue.")
                 return
+            if upload:
+                # A file goes straight to its route, which checks the chat, the name and the limits before it
+                # reads a byte and keeps counting while it reads (also when the length was not declared).
+                await self._respond(scope, receive, send, opener_policy, own_origin, is_api)
+                return
             body = bytearray()  # read it all first, so an oversized body is always a clean 413
             while True:
                 message = await receive()
@@ -189,7 +198,11 @@ class SecurityMiddleware:
                     break
             receive = _replay(bytes(body), receive)
             del body  # the replay holds the only copy, and lets go of it once the app has read it
+        await self._respond(scope, receive, send, opener_policy, own_origin, is_api)
 
+    async def _respond(self, scope: Scope, receive: Receive, send: Send, opener_policy: bool, own_origin: str,
+                       is_api: bool) -> None:
+        """Run the app, adding snild's headers to whatever it answers."""
         started = False
 
         async def send_with_headers(message: Message) -> None:

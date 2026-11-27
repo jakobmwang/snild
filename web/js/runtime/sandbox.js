@@ -8,7 +8,11 @@
  * - The PDF frame reads PDFs with digpdf for the code's pdf.html(); it gets each PDF's bytes from this page.
  *   Text hidden on a PDF's pages never reaches the code: the call's result only names the files that had some,
  *   and the person can look at it (readHidden) and add it to their own message. A PDF's raw bytes never reach
- *   the code either.
+ *   the code either (fs.readFile refuses one, and none is handed to DuckDB, whose read_blob would return it).
+ *
+ * The files a call can use are the chat's (a FileSource bound to the chat the call runs in, taken when it
+ * starts) and the demo files. This page fetches the bytes a call reads, within budgets per call, and saves what
+ * the code writes to the chat, so a write lands even when the call ends just after.
  *
  * Each frame is an <iframe sandbox="allow-scripts"> (no origin, no cookies, no way to the page but its one
  * MessageChannel port). The page decides everything that matters from outside the frames: one call at a time,
@@ -22,30 +26,64 @@ const DEADLINE_MS = 30_000;
 const PING_MS = 500;
 const SILENCE_MS = 3_000;   // no answer to a ping for this long: the frame is gone (crashed, or out of memory)
 const GRACE_MS = 2_000;     // a frame asked to cancel or clean up gets this long before it is replaced
-const MAX_FILE_BYTES = 1_000_000; // fs.readFile and pdf.html take a file whole only up to this size; sql() any
+const MiB = 1024 * 1024;
+const MAX_READ_BYTES = 5 * MiB;   // fs.readFile takes a file whole up to this size (bigger tables: sql())
+const MAX_PDF_BYTES = 25 * MiB;   // pdf.html (its HTML is capped separately, in the PDF frame)
+const MAX_CALL_BYTES = 100 * MiB; // chat files one call fetches in all, each file counted once
+const MAX_SQL_BYTES = 50 * MiB;   // of which handed to DuckDB
+const MAX_WRITES = 20;            // fs.writeFile calls in one call
+const MAX_WRITE_BYTES = 25 * MiB; // and their bytes together
 const MAX_OPEN_ASKS = 8;    // requests (fs, sql, pdf) one call may have waiting at once
+const TABLE = /\.(csv|tsv|xlsx)$/i; // what DuckDB reads
+const TEXT = /\.(csv|tsv|txt|json|md|html|xml|svg)$/i; // what fs.readFile gives as text
 
 /** The files every chat can use, served with the page. */
 const DEMO_FILES = ["demo/sales.csv", "demo/sales.xlsx", "demo/report.pdf"];
 /** A PDF's digest as digpdf records it: what tells one file from another under the same name. */
 const SOURCE = /^sha256:[0-9a-f]{64}$/;
-/** The ones DuckDB reads; only these are handed to it. */
-const TABLE_FILES = DEMO_FILES.filter((name) => /\.(csv|xlsx)$/i.test(name));
+/** The demo files DuckDB reads: what sql() registers when the code names no files. */
+const TABLE_FILES = DEMO_FILES.filter((name) => TABLE.test(name));
 
 /**
  * What a call came to. `value` is the code's return value as text, `svg` a returned SVG chart, `hidden` the PDFs
  * whose hidden text was kept from the code (how many elements, and the PDF's digest).
- * @typedef {{file: string, elements: number, source: string}} HiddenFile
+ * @typedef {{file: string, elements: number, source: string, id?: string}} HiddenFile   id: a chat file's
  * @typedef {{status: "ok" | "error", seconds: number, value?: string, svg?: string, svgChars?: number,
  *            console?: string, error?: string, hidden?: HiddenFile[]}} RunOutcome
  * @typedef {{page: number | null, kind: string, bbox: string, text: string}} HiddenText
+ * @typedef {import("../core/protocol.js").ChatFile} ChatFile
+ * @typedef {{files: ChatFile[], fetch: (id: string, signal?: AbortSignal) => Promise<ArrayBuffer>,
+ *            write: (name: string, bytes: ArrayBuffer) => Promise<ChatFile>}} FileSource
+ *   The chat a call runs in: its files when the call started, how to fetch one, how to add one.
  * @typedef {{job: number, queries: Set<number>, reads: Set<number>, asks: Set<number>, used: () => void,
- *            hidden: Map<string, HiddenFile>}} Active
+ *            hidden: Map<string, HiddenFile>, source: FileSource | null, files: ChatFile[], tables: string[],
+ *            over: AbortController, cache: Map<string, Promise<ArrayBuffer>>, fetched: number,
+ *            sql: Map<string, Promise<ArrayBuffer>>, sqlBytes: number, sent: Set<string>, writes: number,
+ *            written: number}} Active
+ *   files: the chat's files (and those written in the call); tables: the names sql() may register; cache: the
+ *   bytes fetched, by file id (each counted once against fetched); sql: table bytes by name; sent: the names
+ *   the database frame already has for this call; over: aborts what the call still fetches once it ends.
  */
 
 /** Whether bytes are a PDF: its header may come after up to 1 KB of anything. @param {ArrayBuffer} bytes */
 function isPdf(bytes) {
   return new TextDecoder("latin1").decode(new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 1024))).includes("%PDF-");
+}
+
+/** A size as people read it. @param {number} bytes */
+function mib(bytes) {
+  return bytes >= MiB ? `${(bytes / MiB).toFixed(1).replace(/\.0$/, "")} MiB` : `${Math.ceil(bytes / 1024)} KiB`;
+}
+
+/** @param {string} name */
+function pdfRefused(name) {
+  return new Error(`${name} is a PDF: read it with pdf.html(). Its raw bytes are not handed to code.`);
+}
+
+/** @param {string} name @param {number} size */
+function tooLargeToRead(name, size) {
+  return new Error(`${name} is too large to read whole (${mib(size)}; at most ${mib(MAX_READ_BYTES)}). `
+    + "Query a table with sql() instead.");
 }
 
 class Frame {
@@ -66,9 +104,8 @@ class Frame {
     /** Who waits for the next pong (see alive). @type {Set<() => void>} */
     this.probes = new Set();
     this.isReady = false;
-    this.job = 0; // the call whose files the database frame holds
-    /** The files of that call, once they are in hand. @type {Promise<Record<string, ArrayBuffer>> | null} */
-    this.files = null;
+    this.job = 0; // the call the database frame works for
+    this.names = ""; // the database frame: the file names it allows, one per line
     /** The running call's ending, and what to do if the frame dies. @type {((data: any) => void) | null} */
     this.onDone = null;
     /** @type {((reason: string) => void) | null} */
@@ -116,22 +153,23 @@ class Frame {
     document.body.append(this.iframe);
   }
 
-  /** @param {Record<string, unknown>} message */
-  post(message) {
-    if (!this.dead) this.port.postMessage(message);
+  /** @param {Record<string, unknown>} message @param {Transferable[]} [transfer] buffers handed over, not copied */
+  post(message, transfer = []) {
+    if (!this.dead) this.port.postMessage(message, transfer);
   }
 
   /**
    * Send a message and wait for its reply.
    * @param {Record<string, unknown>} message
+   * @param {Transferable[]} [transfer] buffers handed over rather than copied
    * @returns {Promise<any>}
    */
-  request(message) {
+  request(message, transfer = []) {
     if (this.dead) return Promise.reject(new Error(this.dead));
     const n = ++this.next;
     return new Promise((resolve, reject) => {
       this.waiting.set(n, { resolve, reject });
-      this.port.postMessage({ ...message, n });
+      this.port.postMessage({ ...message, n }, transfer);
     });
   }
 
@@ -214,10 +252,12 @@ export class Sandbox {
    * worker is ended at once and nothing is reported.
    * @param {string} code
    * @param {AbortSignal} [signal]
+   * @param {FileSource | null} [source] the chat's files (none: only the demo files)
+   * @param {number} [spentMs] time the call already spent (waiting for the chat's files): its deadline is shorter
    * @returns {Promise<RunOutcome>}
    */
-  run(code, signal) {
-    const turn = this.queue.then(() => this.#job(code, signal));
+  run(code, signal, source = null, spentMs = 0) {
+    const turn = this.queue.then(() => this.#job(code, signal, source, spentMs));
     this.queue = turn.catch(() => {});
     return turn;
   }
@@ -247,9 +287,11 @@ export class Sandbox {
   /**
    * @param {string} code
    * @param {AbortSignal | undefined} signal
+   * @param {FileSource | null} source
+   * @param {number} spentMs
    * @returns {Promise<RunOutcome>}
    */
-  #job(code, signal) {
+  #job(code, signal, source, spentMs) {
     signal?.throwIfAborted();
     const job = ++this.jobs;
     const started = performance.now();
@@ -258,9 +300,12 @@ export class Sandbox {
     }
     const frame = this.code;
     let usedDatabase = false;
+    const files = [...(source?.files ?? [])];
     /** @type {Active} */
     const active = { job, queries: new Set(), reads: new Set(), asks: new Set(), used: () => { usedDatabase = true; },
-      hidden: new Map() };
+      hidden: new Map(), source, files, tables: files.filter((file) => TABLE.test(file.name)).map((file) => file.name),
+      over: new AbortController(), cache: new Map(), fetched: 0, sql: new Map(), sqlBytes: 0, sent: new Set(),
+      writes: 0, written: 0 };
     this.active = active;
 
     return new Promise((resolve, reject) => {
@@ -268,7 +313,7 @@ export class Sandbox {
       /** @type {ReturnType<typeof setTimeout> | 0} */
       let grace = 0;
       const timer = setTimeout(() => cancel(`The code was stopped after ${Math.round(this.deadlineMs / 1000)} s, `
-        + "its time limit. Make it do less, or work on less data at once."), this.deadlineMs);
+        + "its time limit. Make it do less, or work on less data at once."), Math.max(0, this.deadlineMs - spentMs));
 
       /** @param {(() => void)} settle */
       const close = async (settle) => {
@@ -281,6 +326,7 @@ export class Sandbox {
         frame.onDone = null;
         frame.onDeath = null;
         this.active = null;
+        active.over.abort(); // files still on their way belong to no one now
         this.#tidyReader(active.reads.size > 0);
         await this.#tidy(job, usedDatabase, active.queries.size > 0);
         settle();
@@ -372,12 +418,14 @@ export class Sandbox {
     /** @type {{value?: unknown, error?: string}} */
     let answer;
     try {
-      if (op === "readdir") answer = { value: [...DEMO_FILES] };
-      else if (op === "readFile") answer = { value: await this.#readFile(String(args?.name)) };
+      if (op === "readdir") answer = { value: [...active.files.map((file) => file.name), ...DEMO_FILES] };
+      else if (op === "readFile") answer = { value: await this.#readFile(active, String(args?.name)) };
+      else if (op === "writeFile") answer = { value: await this.#writeFile(active, String(args?.name), args?.bytes) };
       else if (op === "sql") {
         active.queries.add(n);
         try {
-          answer = { value: await this.#sql(active, String(args?.query)) };
+          const files = Array.isArray(args?.files) ? args.files.map(String) : null;
+          answer = { value: await this.#sql(active, String(args?.query), files) };
         } finally {
           active.queries.delete(n);
         }
@@ -392,10 +440,11 @@ export class Sandbox {
     } catch (error) {
       answer = { error: error instanceof Error ? error.message : String(error) };
     }
-    if (this.active === active) frame.post({ type: "answer", job: active.job, n, ...answer });
+    const transfer = answer.value instanceof Uint8Array ? [answer.value.buffer] : []; // a copy made for this answer
+    if (this.active === active) frame.post({ type: "answer", job: active.job, n, ...answer }, transfer);
   }
 
-  /** @param {string} name */
+  /** A demo file's bytes, fetched once for the page. @param {string} name */
   #fetch(name) {
     if (!DEMO_FILES.includes(name)) throw new Error(`There is no file named ${JSON.stringify(name)}. fs.readdir() lists the files.`);
     let bytes = this.bytes.get(name);
@@ -410,6 +459,64 @@ export class Sandbox {
     return bytes;
   }
 
+  /** The chat's file of that name in this call, or null (a demo file, or none). @param {Active} active @param {string} name */
+  #chatFile(active, name) {
+    return active.files.find((file) => file.name === name) ?? null;
+  }
+
+  /**
+   * A file's bytes for this call: a demo file, or one of the chat's, fetched once per call and counted once
+   * against the call's budget before it is fetched.
+   * @param {Active} active
+   * @param {string} name
+   * @returns {Promise<ArrayBuffer>}
+   */
+  async #bytes(active, name) {
+    const file = this.#chatFile(active, name);
+    if (!file) return this.#fetch(name);
+    let bytes = active.cache.get(file.id);
+    if (!bytes) {
+      if (active.fetched + file.size > MAX_CALL_BYTES) {
+        throw new Error(`One call can read at most ${mib(MAX_CALL_BYTES)} of files; ${name} would pass that. `
+          + "Read fewer or smaller files in one call.");
+      }
+      active.fetched += file.size;
+      const source = /** @type {FileSource} */ (active.source);
+      bytes = source.fetch(file.id, active.over.signal).catch((/** @type {Error} */ error) => {
+        active.cache.delete(file.id); // not read: it costs nothing, and a later read tries again
+        active.fetched -= file.size;
+        throw new Error(active.over.signal.aborted ? "The call has ended."
+          : `${name} could not be read${error?.message ? `: ${error.message}` : "."}`);
+      });
+      active.cache.set(file.id, bytes);
+    }
+    return bytes;
+  }
+
+  /**
+   * Save what the code wrote to the chat, under the name it asked for or, if that is taken, a numbered one
+   * ("a (2).csv"), which it gets back. Within the call's limits; none starts once the call has ended, and one
+   * already sent lands even if the call ends meanwhile.
+   * @param {Active} active
+   * @param {string} name
+   * @param {unknown} bytes
+   */
+  async #writeFile(active, name, bytes) {
+    if (!(bytes instanceof ArrayBuffer)) throw new Error("fs.writeFile takes a string, a Uint8Array or an ArrayBuffer.");
+    if (!active.source) throw new Error("Files can be written only in a chat.");
+    if (active.writes >= MAX_WRITES) throw new Error(`One call can write at most ${MAX_WRITES} files.`);
+    if (active.written + bytes.byteLength > MAX_WRITE_BYTES) {
+      throw new Error(`One call can write at most ${mib(MAX_WRITE_BYTES)} in all.`);
+    }
+    if (this.active !== active) throw new Error("The call has ended.");
+    active.writes++;
+    active.written += bytes.byteLength;
+    const file = await active.source.write(name, bytes);
+    active.files.unshift(file); // readable by the rest of this call (but not by sql(), whose files were fixed at its start)
+    active.cache.set(file.id, Promise.resolve(bytes));
+    return file.name;
+  }
+
   /**
    * A PDF as HTML, read by digpdf in the PDF frame, which is started on the first read and kept warm.
    * @param {Active} active
@@ -417,38 +524,54 @@ export class Sandbox {
    * @returns {Promise<{html: string, notes: string[]}>}
    */
   async #pdf(active, name) {
-    const bytes = await this.#fetch(name);
+    const file = this.#chatFile(active, name);
+    if (file && file.size > MAX_PDF_BYTES) throw new Error(`${name} is too large to read (${mib(file.size)}; at most ${mib(MAX_PDF_BYTES)}).`);
+    const bytes = await this.#bytes(active, name);
     if (this.active !== active) throw new Error("The call has ended."); // no frame is started for an ended call
-    if (bytes.byteLength > MAX_FILE_BYTES) throw new Error(`${name} is too large to read (${bytes.byteLength} bytes).`);
+    if (bytes.byteLength > MAX_PDF_BYTES) throw new Error(`${name} is too large to read (${mib(bytes.byteLength)}).`);
     const reader = await this.#reader();
     if (this.active !== active || reader.dead) throw new Error("The call has ended.");
-    const reply = await this.#ask(reader, { type: "pdf", name, bytes: bytes.slice(0) });
+    const copy = bytes.slice(0);
+    const reply = await this.#ask(reader, { type: "pdf", name, bytes: copy }, [copy]);
     if (this.active !== active) throw new Error("The call has ended.");
     const elements = Number(reply.hidden) || 0;
     const source = String(reply.source ?? "");
-    if (elements > 0 && SOURCE.test(source)) active.hidden.set(name, { file: name, elements, source });
+    if (elements > 0 && SOURCE.test(source)) {
+      active.hidden.set(name, { file: name, elements, source, ...(file ? { id: file.id } : {}) });
+    }
     return { html: String(reply.html), notes: Array.isArray(reply.notes) ? reply.notes.map(String) : [] };
   }
 
   /**
    * The text hidden in a PDF, for the person to look at: read by this page and never handed to code. It takes
-   * its turn after any call (as a call does), so the two never share the PDF frame. `source` is the digest of
-   * the PDF the call read; another file now under that name is refused. `signal`: the person left the chat.
-   * @param {string} name
-   * @param {string} source
+   * its turn after any call (as a call does), so the two never share the PDF frame. `entry.source` is the
+   * digest of the PDF the call read; another file now under that name is refused. A chat file is found by its
+   * id in `files` (the chat's, now): one deleted meanwhile is no longer there. `signal`: the person left the chat.
+   * @param {HiddenFile} entry
+   * @param {FileSource | null} files
    * @param {AbortSignal} [signal]
+   * @param {number} [spentMs] time already spent (finding the chat's files): the preview's deadline is shorter
    * @returns {Promise<HiddenText[]>}
    */
-  readHidden(name, source, signal) {
-    const turn = this.queue.then(() => this.#readHidden(name, source, signal));
+  readHidden(entry, files, signal, spentMs = 0) {
+    const turn = this.queue.then(() => this.#readHidden(entry, files, signal, spentMs));
     this.queue = turn.catch(() => {});
     return turn;
   }
 
-  /** @param {string} name @param {string} source @param {AbortSignal} [signal] @returns {Promise<HiddenText[]>} */
-  async #readHidden(name, source, signal) {
+  /**
+   * @param {HiddenFile} entry @param {FileSource | null} files @param {AbortSignal | undefined} signal
+   * @param {number} spentMs
+   * @returns {Promise<HiddenText[]>}
+   */
+  async #readHidden({ file: name, id, source }, files, signal, spentMs) {
     signal?.throwIfAborted();
     if (!SOURCE.test(source)) throw new Error(`Which version of ${name} the code read is not known.`);
+    if (id) { // a chat file: still there, and the very file the call read (digpdf's source is its SHA-256)
+      const listed = files?.files.find((file) => file.id === id);
+      if (!listed) throw new Error(`${name} is no longer in this chat.`);
+      if (`sha256:${listed.sha256}` !== source) throw new Error(`${name} has changed since the code read it.`);
+    }
     // The PDF frame is this preview's from the moment it asks for it (no call runs meanwhile), so when time runs
     // out or the person leaves, the frame goes with it, started or not: digpdf cannot be interrupted, and its
     // answer would belong to no one. A stopped preview touches nothing after its next wait.
@@ -458,22 +581,26 @@ export class Sandbox {
     let fail = () => {};
     const over = new Promise((_, reject) => { fail = reject; });
     /** @param {Error} error */
+    const fetching = new AbortController(); // the file's download, called off with the preview
     const stop = (error) => {
       stopped = true;
+      fetching.abort();
       if (usesReader) this.reader?.destroy(error.message);
       fail(error);
     };
-    const timer = setTimeout(() => stop(new Error("The PDF reader did not answer in time.")), this.deadlineMs);
+    const timer = setTimeout(() => stop(new Error("The PDF reader did not answer in time.")),
+      Math.max(0, this.deadlineMs - spentMs));
     const leave = () => stop(new DOMException("The chat was closed.", "AbortError"));
     signal?.addEventListener("abort", leave, { once: true });
     const read = async () => {
-      const bytes = await this.#fetch(name);
+      const bytes = id ? await /** @type {FileSource} */ (files).fetch(id, fetching.signal) : await this.#fetch(name);
       if (stopped) return [];
-      if (bytes.byteLength > MAX_FILE_BYTES || !isPdf(bytes)) throw new Error(`${name} cannot be read as a PDF.`);
+      if (bytes.byteLength > MAX_PDF_BYTES || !isPdf(bytes)) throw new Error(`${name} cannot be read as a PDF.`);
       usesReader = true;
       const reader = await this.#reader();
       if (stopped || reader.dead) return [];
-      const reply = await this.#ask(reader, { type: "pdf", name, bytes: bytes.slice(0), hidden: true });
+      const copy = bytes.slice(0);
+      const reply = await this.#ask(reader, { type: "pdf", name, bytes: copy, hidden: true }, [copy]);
       if (reply.source !== source) throw new Error(`${name} has changed since the code read it.`);
       return Array.isArray(reply.hidden) ? reply.hidden : [];
     };
@@ -499,10 +626,15 @@ export class Sandbox {
     return reader;
   }
 
-  /** One request to the PDF frame, watched while it runs. @param {Frame} reader @param {Record<string, unknown>} message */
-  async #ask(reader, message) {
+  /**
+   * One request to the PDF frame, watched while it runs.
+   * @param {Frame} reader
+   * @param {Record<string, unknown>} message
+   * @param {Transferable[]} [transfer]
+   */
+  async #ask(reader, message, transfer) {
     reader.watch(true);
-    const reply = await reader.request(message).catch((/** @type {Error} */ error) => {
+    const reply = await reader.request(message, transfer).catch((/** @type {Error} */ error) => {
       throw new Error(`The PDF reader ${error.message}; the next read starts a fresh one.`);
     });
     if (typeof reply.error === "string") throw new Error(reply.error);
@@ -512,47 +644,107 @@ export class Sandbox {
   /**
    * CSV and other text as a string; anything else (Excel) as bytes. A PDF is refused: its raw bytes would let the
    * code dig out the text hidden on its pages.
+   * @param {Active} active
    * @param {string} name
    */
-  async #readFile(name) {
-    const bytes = await this.#fetch(name);
-    if (/\.pdf$/i.test(name) || isPdf(bytes)) {
-      throw new Error(`${name} is a PDF: read it with pdf.html(). Its raw bytes are not handed to code.`);
-    }
-    if (bytes.byteLength > MAX_FILE_BYTES) {
-      throw new Error(`${name} is too large to read whole (${bytes.byteLength} bytes); query it with sql() instead.`);
-    }
-    return /\.(csv|tsv|txt|json|md)$/i.test(name) ? new TextDecoder().decode(bytes) : new Uint8Array(bytes.slice(0));
+  async #readFile(active, name) {
+    const file = this.#chatFile(active, name);
+    if (/\.pdf$/i.test(name)) throw pdfRefused(name);
+    if (file && file.size > MAX_READ_BYTES) throw tooLargeToRead(name, file.size);
+    const bytes = await this.#bytes(active, name);
+    if (isPdf(bytes)) throw pdfRefused(name);
+    if (bytes.byteLength > MAX_READ_BYTES) throw tooLargeToRead(name, bytes.byteLength);
+    return TEXT.test(name) ? new TextDecoder().decode(bytes) : new Uint8Array(bytes.slice(0));
   }
 
   /**
+   * The bytes of the table files a query names, fetched once per call and checked: a PDF is never handed to
+   * DuckDB. The sizes of the chat files not yet in hand are set aside from the call's SQL budget together,
+   * before any is fetched; a file that fails to load, or turns out to be a PDF, gives its share back (a PDF
+   * still counts against the call's fetches).
+   * @param {Active} active
+   * @param {string[]} names
+   * @returns {Promise<ArrayBuffer[]>}
+   */
+  #tableBytes(active, names) {
+    const fresh = names.filter((name) => !active.sql.has(name));
+    const sizes = fresh.map((name) => this.#chatFile(active, name)?.size ?? 0);
+    if (active.sqlBytes + sizes.reduce((sum, size) => sum + size, 0) > MAX_SQL_BYTES) {
+      return Promise.reject(new Error(`sql() can use at most ${mib(MAX_SQL_BYTES)} of files in one call; these files `
+        + "would pass that."));
+    }
+    // And the call's whole budget, before any of them is fetched: a batch is refused whole, never halfway.
+    const unfetched = fresh.map((name) => this.#chatFile(active, name)).filter((file) => file && !active.cache.has(file.id));
+    if (active.fetched + unfetched.reduce((sum, file) => sum + (file?.size ?? 0), 0) > MAX_CALL_BYTES) {
+      return Promise.reject(new Error(`One call can read at most ${mib(MAX_CALL_BYTES)} of files; these files would `
+        + "pass that."));
+    }
+    fresh.forEach((name, i) => {
+      active.sqlBytes += sizes[i];
+      const bytes = this.#bytes(active, name).then((got) => {
+        if (isPdf(got)) throw new Error(`${name} is a PDF, not a table: read it with pdf.html().`);
+        return got;
+      });
+      bytes.catch(() => {
+        active.sqlBytes -= sizes[i];
+        active.sql.delete(name);
+      });
+      active.sql.set(name, bytes);
+    });
+    return Promise.all(names.map((name) => /** @type {Promise<ArrayBuffer>} */ (active.sql.get(name))));
+  }
+
+  /**
+   * A query in the database frame, over the files it names (by default the demo tables). The frame allows
+   * exactly the table files of the call's chat and the demo tables; one that allows others is replaced. Each
+   * file goes to the frame once per call, with the first query that needs it.
    * @param {Active} active
    * @param {string} query
+   * @param {string[] | null} files
    */
-  async #sql(active, query) {
+  async #sql(active, query, files) {
+    const wanted = [...new Set(files ?? TABLE_FILES)];
+    for (const name of wanted) {
+      if (!TABLE_FILES.includes(name) && !active.tables.includes(name)) {
+        throw new Error(`${JSON.stringify(name)} is not a table file (CSV, TSV or Excel) of this chat as the call `
+          + "started. fs.readdir() lists the files.");
+      }
+    }
+    const names = [...TABLE_FILES, ...active.tables].join("\n");
+    if (this.database && !this.database.dead && this.database.names !== names) {
+      this.database.destroy("its files changed"); // its allowed paths are locked when it starts
+    }
     if (!this.database || this.database.dead) {
-      this.database = new Frame(`${this.assets}/frames/duckdb.html`, Promise.resolve({ names: TABLE_FILES }), () => {});
+      this.database = new Frame(`${this.assets}/frames/duckdb.html`,
+        Promise.resolve({ names: names.split("\n") }), () => {});
+      this.database.names = names;
+      active.sent.clear(); // a frame made during the call (its first died) has none of its files
     }
     const database = this.database;
     active.used(); // from here on the call has the database: a stop while it starts replaces it
-    await database.ready.catch((/** @type {Error} */ error) => {
-      throw new Error(`The database could not start: ${error.message}`);
-    });
-    // The call's first query brings the call's files, once, however many queries start together.
-    const first = database.job !== active.job;
-    if (first) {
-      database.job = active.job;
-      database.files = Promise.all(TABLE_FILES.map(async (name) => [name, (await this.#fetch(name)).slice(0)]))
-        .then(Object.fromEntries);
-    }
-    const files = await /** @type {Promise<Record<string, ArrayBuffer>>} */ (database.files);
+    const [, bytes] = await Promise.all([
+      database.ready.catch((/** @type {Error} */ error) => {
+        throw new Error(`The database could not start: ${error.message}`);
+      }),
+      this.#tableBytes(active, wanted),
+    ]);
     if (this.active !== active || database.dead) throw new Error("The call has ended.");
+    /** @type {Record<string, ArrayBuffer>} */
+    const given = {};
+    wanted.forEach((name, i) => {
+      if (active.sent.has(name)) return; // an earlier query of this call brought it
+      active.sent.add(name);
+      given[name] = bytes[i].slice(0);
+    });
     database.watch(true);
-    const reply = await database.request({ type: "sql", job: active.job, query, files: first ? files : undefined })
-      .catch((/** @type {Error} */ error) => {
-        throw new Error(`The database ${error.message}; the next query starts a fresh one.`);
-      });
-    if (typeof reply.error === "string") throw new Error(reply.error);
+    const reply = await database.request({ type: "sql", job: active.job, query, files: given }, Object.values(given))
+      .catch((/** @type {Error} */ error) => ({ error: `The database ${error.message}; the next query starts a fresh one.` }));
+    if (typeof reply.error === "string") {
+      // The files may not have been registered: a later query of the call sends them again (the frame skips
+      // the ones it has).
+      for (const name of Object.keys(given)) active.sent.delete(name);
+      throw new Error(reply.error);
+    }
     return reply.rows;
   }
 

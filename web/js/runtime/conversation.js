@@ -89,6 +89,10 @@ export class Conversation {
     this.streaming = null;
     /** @type {(() => void) | null} */
     this.loaded = null; // resolves load() once the watcher has read the chat for the first time
+    /** The new chat being created (ensureChat), while it is. @type {Promise<string> | null} */
+    this.creating = null;
+    /** The files the message being sent attaches, to show with it while it is resent. @type {import("../core/protocol.js").AttachedFile[]} */
+    this.attached = [];
     this.stopping = false;
     this.stopWanted = false; // Stop was pressed before the reply had started: stop it as soon as it does
     /** Stop for the tools this tab runs for its current send or continue. @type {AbortController} */
@@ -123,13 +127,35 @@ export class Conversation {
   }
 
   /**
+   * The chat's id, creating the chat first if this is a new one. However many ask at once (the first upload,
+   * Send), there is one new chat, and everything lands in it.
+   * @returns {Promise<string>}
+   */
+  ensureChat() {
+    if (this.chatId) return Promise.resolve(this.chatId);
+    this.creating ??= this.api.createChat(this.modelId, this.aborter.signal).then(({ chat }) => {
+      if (this.disposed) throw new DOMException("The chat was closed.", "AbortError");
+      this.chatId = chat.id;
+      this.state = fromSnapshot({ chat, items: [], awaiting: "user", active_run: null, last_run: null });
+      this.onCreated(chat.id);
+      this.onChatsChanged();
+      this.onChange("all");
+      return chat.id;
+    }).finally(() => {
+      this.creating = null;
+    });
+    return this.creating;
+  }
+
+  /**
    * Send a message. `onAccepted` runs as soon as the server confirms it has the message (the composer and the
    * draft may clear then, long before the reply ends). Resolves whether it was accepted; if not, the text
    * stays where it is and a notice says why.
    * @param {string} text
    * @param {() => void} [onAccepted]
+   * @param {import("../core/protocol.js").AttachedFile[]} [attached] files of the chat the message attaches
    */
-  async send(text, onAccepted = () => {}) {
+  async send(text, onAccepted = () => {}, attached = []) {
     if (this.busy || this.disposed) return false;
     if (this.chatId && !this.state) return false; // the chat is not loaded (yet, or any more): nothing to add to
     this.sending = true;
@@ -144,20 +170,20 @@ export class Conversation {
     let step = null;
     try {
       if (!this.chatId) {
-        const { chat } = await this.api.createChat(this.modelId, this.aborter.signal);
+        await this.ensureChat();
         if (this.disposed) return false;
-        this.chatId = chat.id;
-        this.state = fromSnapshot({ chat, items: [], awaiting: "user", active_run: null, last_run: null });
-        this.onCreated(chat.id);
-        this.onChatsChanged();
       }
       const state = /** @type {ChatState} */ (this.state);
-      const again = this.unsure?.text === text ? this.unsure.step : null;
+      const ids = attached.map((file) => file.id);
+      const before = this.unsure?.step.items[0];
+      const same = before?.type === "user" && (before.file_ids ?? []).join("\n") === ids.join("\n");
+      const again = this.unsure?.text === text && same ? this.unsure.step : null;
       // Shown at once, unless this repeats a request whose message the saved chat already holds.
-      if (!again || state.revision === again.revision) addPendingMessage(state, text);
+      this.attached = attached;
+      if (!again || state.revision === again.revision) addPendingMessage(state, text, attached);
       this.onChange("all");
-      step = again ?? { key: newRequestKey(), items: [{ type: "user", text }], revision: state.revision,
-        modelId: this.#modelFor(state) };
+      step = again ?? { key: newRequestKey(), revision: state.revision, modelId: this.#modelFor(state),
+        items: [{ type: "user", text, ...(ids.length ? { file_ids: ids } : {}) }] };
       // Until the server confirms it, this message is uncertain: remembered (with its exact request) before
       // it goes out, so leaving the chat, closing the tab or a crash on the way can never lose the key.
       this.#setUnsure({ text, step });
@@ -339,7 +365,7 @@ export class Conversation {
         await sleep(500 * 2 ** attempt, this.aborter.signal);
         if (!(await this.#reconnect())) throw error;
         if (step === first && !accepted.value && text !== null && this.state && this.state.revision === first.revision) {
-          addPendingMessage(this.state, text); // nothing saved since: still on its way, keep showing it
+          addPendingMessage(this.state, text, this.attached); // nothing saved since: still on its way, keep showing it
           this.onChange("all");
         }
       }

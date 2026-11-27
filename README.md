@@ -1,6 +1,6 @@
 # snild
 
-snild is a self-hosted AI chat that runs in the browser: one container, one SQLite file. This early preview has accounts that admins manage in the browser, streamed replies with Stop, chats that survive a reload, a restart or a second tab, model-written titles, and a first tool: the model's JavaScript, with SQL over spreadsheets, PDFs read as HTML and d3 charts, runs sandboxed in the browser, never on the server. All of it works with a built-in scripted test model. Planned: connections to the model APIs admins add, OIDC sign-in as an alternative to local accounts, files in chats, and reports. See [ARCHITECTURE.md](ARCHITECTURE.md).
+snild is a self-hosted AI chat that runs in the browser: one container, with everything it keeps (a SQLite file and the chats' files) in one data volume. This early preview has accounts that admins manage in the browser, streamed replies with Stop, chats that survive a reload, a restart or a second tab, model-written titles, files in chats (by upload, paste or drop, and files the model's code writes), and a first tool: the model's JavaScript, with SQL over spreadsheets, PDFs read as HTML and d3 charts, runs sandboxed in the browser, never on the server. All of it works with a built-in scripted test model. Planned: connections to the model APIs admins add, OIDC sign-in as an alternative to local accounts, and reports. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ![A chat in snild: the test model runs JavaScript over the demo sales files, draws a bar chart of sales by region and answers with a table.](docs/screenshot.png)
 
@@ -16,11 +16,13 @@ docker compose logs snild
 
 The log shows a one-time setup code. Open <http://localhost:8080>, enter the code and create your admin account. The setup code works for 30 minutes; until the first admin exists, restarting snild (`docker compose restart snild`) prints a new one.
 
-Then ask the test model to *show me some markdown*: it streams a formatted sample answer, and the chat gets a title. Or ask it to *analyse the demo sales data*: it runs real code in your browser over two demo files (the same sales as CSV and Excel), checks one against the other and draws a chart. Or ask it to *check the demo sales report against the data*: it reads a PDF report of the same sales and finds the figure that is wrong. The report also hides a line of text, which snild keeps from the model: below the call you can show it and, if you like, add it to your message.
+Then ask the test model to *show me some markdown*: it streams a formatted sample answer, and the chat gets a title. Or ask it to *analyse the demo sales data*: it runs real code in your browser over two demo files (the same sales as CSV and Excel), checks one against the other and draws a chart. Or ask it to *check the demo sales report against the data*: it reads a PDF report of the same sales and finds the figure that is wrong. The report also hides a line of text, which snild keeps from the model: below the call you can show it and, if you like, add it to your message. Attach your own files with the paperclip (or paste or drop them): the model's code can read them and write new ones, and **Files** at the top of the chat lists them all for download.
 
 ## People
 
-Admins open **Admin** in the account menu. Under **People** they add someone with a password to pass on, set a new password for someone who forgot theirs, disable or enable an account, and change someone's role; everyone can change their own password in the account menu. Under **Settings** they choose how long a sign-in lasts (by default 7 days unused, 30 days at most, or no limit). Chats are kept until people delete them.
+Admins open **Admin** in the account menu. Under **People** they add someone with a password to pass on, set a new password for someone who forgot theirs, disable or enable an account, and change someone's role; everyone can change their own password in the account menu. Under **Settings** they choose how long a sign-in lasts (by default 7 days unused, 30 days at most, or no limit), the largest file (25 MiB by default) and how much all of one person's files may hold (1000 MiB). Chats and files are kept until people delete them.
+
+Everything snild keeps is in its data volume: the database and the chats' files beside it. Back up a stopped snild, or an atomic snapshot of the whole volume.
 
 If no admin can sign in any more, `docker compose exec snild snild-admin --help` shows the way back in.
 

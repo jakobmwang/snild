@@ -31,7 +31,7 @@ const AT_BOTTOM_PX = 48;
 /**
  * What the person can do with hidden text: read it (never handed to code), and add a quote of it to their
  * message, which returns why it could not, or null.
- * @typedef {{readHidden: (file: string, source: string, signal: AbortSignal) => Promise<HiddenText[]>,
+ * @typedef {{readHidden: (entry: import("../core/runjs.js").HiddenFile, signal: AbortSignal) => Promise<HiddenText[]>,
  *            addToMessage: (quote: string) => string | null}} HiddenActions
  * @typedef {import("../runtime/sandbox.js").HiddenText} HiddenText
  * @typedef {{items?: HiddenText[], open?: boolean, problem?: string, reading?: boolean}} Revealed
@@ -106,6 +106,20 @@ export class TranscriptView {
     this.hidden.leave = new AbortController();
     this.thought.clear();
     this.thinkingSince = 0;
+  }
+
+  /**
+   * The chat's files now: hidden text shown from a file that is no longer there is put away (Show then reads
+   * again, and says the file is gone).
+   * @param {Set<string>} ids
+   */
+  filesNow(ids) {
+    for (const node of this.element.querySelectorAll(".hidden-text[data-file]")) {
+      const line = /** @type {HTMLElement} */ (node);
+      if (ids.has(line.dataset.file ?? "")) continue;
+      const key = (line.dataset.slot ?? "").slice("hidden:".length);
+      if (this.hidden.revealed.delete(key)) lines.get(line)?.();
+    }
   }
 
   /** Follow the newest text from now on (after sending, or "Jump to latest"). */
@@ -261,7 +275,7 @@ function patch(host, parts) {
  * the server saved count as different (another tab may have saved its own), so the saved one is drawn anew.
  */
 function keyOf(message) {
-  if (message.kind === "user") return `u${message.text.length}`;
+  if (message.kind === "user") return `u${message.text.length}:${message.files.length}`;
   const result = (/** @type {ToolView} */ t) => (t.result ? (t.unsaved ? "here" : "saved") : "");
   const tools = message.tools.map((t) => `${t.id}:${t.preview.length}:${t.input ? 1 : 0}:${result(t)}:${t.phase ?? ""}`).join(",");
   return `a${message.status}:${message.text.length}:${message.thinking.length}:${tools}`;
@@ -278,7 +292,11 @@ function messageNode(message, index, opened, thought, hidden) {
   if (message.kind === "user") {
     return el("article", { class: "message message-user" },
       el("h2", { class: "visually-hidden" }, text.you),
-      el("div", { class: "bubble" }, message.text));
+      el("div", { class: "bubble" }, message.text),
+      message.files.length ? el("ul", { class: "message-files", "aria-label": text.attachedFiles },
+        ...message.files.map((file) => el("li", { class: "file-chip" }, icon("file"),
+          el("span", { class: "file-chip-name" }, file.name), el("span", { class: "file-chip-size" }, text.size(file.size)))))
+        : null);
   }
   return el("article", { class: "message message-assistant" }, ...assistantParts(message, index, opened, thought, hidden));
 }
@@ -398,16 +416,18 @@ function hiddenLine(entry, key, hidden) {
     }
     if (now?.reading) return;
     const { revealed, leave } = hidden;
-    revealed.set(key, { reading: true });
+    const reading = { reading: true };
+    revealed.set(key, reading);
     draw();
     /** @type {Revealed} */
     let got;
     try {
-      got = { items: await actions.readHidden(entry.file, entry.source, leave.signal), open: true };
+      got = { items: await actions.readHidden(entry, leave.signal), open: true };
     } catch (error) {
       got = { problem: error instanceof Error ? error.message : String(error) };
     }
-    if (leave.signal.aborted) return; // another chat is open now
+    // Another chat is open now, or the file went away meanwhile (filesNow put the read away): nothing to show.
+    if (leave.signal.aborted || revealed.get(key) !== reading) return;
     revealed.set(key, got);
     // The line may have been drawn anew meanwhile (the reply was saved): the one on the page shows it.
     for (const node of hidden.root.querySelectorAll(".hidden-text")) {
@@ -421,7 +441,7 @@ function hiddenLine(entry, key, hidden) {
     draw();
   });
   draw();
-  const line = el("div", { class: "hidden-text", "data-slot": `hidden:${key}` },
+  const line = el("div", { class: "hidden-text", "data-slot": `hidden:${key}`, "data-file": entry.id },
     el("div", { class: "hidden-head" }, el("span", {}, text.hiddenKept(entry.file, entry.elements)),
       el("div", { class: "hidden-actions" }, show, add)),
     body);

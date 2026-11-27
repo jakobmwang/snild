@@ -168,6 +168,47 @@ export class ApiClient {
     return this.#json("DELETE", `/chats/${encodeURIComponent(chatId)}`);
   }
 
+  /** The chat's files, newest first. @param {string} chatId @param {AbortSignal} [signal]
+   * @returns {Promise<{files: import("../core/protocol.js").ChatFile[]}>} */
+  listFiles(chatId, signal) {
+    return this.#json("GET", `/chats/${encodeURIComponent(chatId)}/files`, undefined, signal);
+  }
+
+  /**
+   * Add a file to a chat. The name travels in a header, never in the address (file addresses carry ids). If it is
+   * taken, the server numbers it ("a (2).csv"); the answer says the name it got.
+   * @param {string} chatId
+   * @param {Blob} body
+   * @param {string} name
+   * @param {"person" | "model"} origin
+   * @param {AbortSignal} [signal]
+   * @returns {Promise<{file: import("../core/protocol.js").ChatFile}>}
+   */
+  uploadFile(chatId, body, name, origin, signal) {
+    return this.#json("POST", `/chats/${encodeURIComponent(chatId)}/files`, body, signal,
+      { "x-snild-filename": encodeURIComponent(name), "x-snild-origin": origin });
+  }
+
+  /** @param {string} chatId @param {string} fileId */
+  deleteFile(chatId, fileId) {
+    return this.#json("DELETE", this.fileUrl(chatId, fileId, ""));
+  }
+
+  /** A file's bytes, for the tools. @param {string} chatId @param {string} fileId @param {AbortSignal} [signal] */
+  async fileBytes(chatId, fileId, signal) {
+    return (await this.#send("GET", this.fileUrl(chatId, fileId, ""), undefined, signal)).arrayBuffer();
+  }
+
+  /**
+   * Where a file downloads from (always as an attachment).
+   * @param {string} chatId
+   * @param {string} fileId
+   * @param {string} [base] this client's base; "" for a path the client itself sends
+   */
+  fileUrl(chatId, fileId, base = this.base) {
+    return `${base}/chats/${encodeURIComponent(chatId)}/files/${encodeURIComponent(fileId)}`;
+  }
+
   /**
    * Post the new items of a turn and stream the reply.
    * @param {{chatId: string, modelId: string, expectedRevision: number, items: ItemIn[],
@@ -254,27 +295,31 @@ export class ApiClient {
    * @param {string} path
    * @param {unknown} [body]
    * @param {AbortSignal} [signal]
+   * @param {Record<string, string>} [extra] more headers
    */
-  async #json(method, path, body, signal) {
-    const response = await this.#send(method, path, body, signal);
+  async #json(method, path, body, signal, extra) {
+    const response = await this.#send(method, path, body, signal, extra);
     return response.json();
   }
 
   /**
    * @param {string} method
    * @param {string} path
-   * @param {unknown} [body]
+   * @param {unknown} [body] JSON, or a Blob sent as it is
    * @param {AbortSignal} [signal]
+   * @param {Record<string, string>} [extra] more headers
    */
-  async #send(method, path, body, signal) {
+  async #send(method, path, body, signal, extra = {}) {
+    const raw = body instanceof Blob;
     /** @type {Record<string, string>} */
-    const headers = body === undefined ? {} : { "content-type": "application/json" };
+    const headers = body === undefined ? {} : { "content-type": raw ? "application/octet-stream" : "application/json" };
     if (this.userId) headers["x-snild-user"] = this.userId;
+    Object.assign(headers, extra);
     const response = await this.fetch(this.base + path, {
       method,
       credentials: "same-origin",
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : raw ? body : JSON.stringify(body),
       signal,
     });
     if (!response.ok) {

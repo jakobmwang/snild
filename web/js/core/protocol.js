@@ -21,14 +21,17 @@
  * @typedef {{version: string, setup_required: boolean, signed_in: boolean, user: User | null}} AuthStatus
  * @typedef {User & {disabled: boolean}} Person
  * @typedef {{key: string, label: string, help: string, default: number | null, min: number, max: number,
- *            nullable: boolean, value: number | null}} Setting
+ *            nullable: boolean, unit: string, group: string, value: number | null}} Setting
  * @typedef {{version: string, user: User, models: ModelInfo[], default_model: string | null,
  *            emulator: boolean, limits: {message_chars: number, tool_result_chars: number}}} Bootstrap
  *
  * @typedef {{id: string, title: string, title_source: "none" | "provisional" | "model" | "user",
  *            model_id: string | null, revision: number, created_at: number, updated_at: number}} Chat
  * @typedef {{id: string, name: string, input: Record<string, unknown>}} ToolCall
- * @typedef {{id: string, type: "user", text: string}} UserItem
+ * @typedef {{id: string, name: string, size: number}} AttachedFile   a file as a message attached it, frozen then
+ * @typedef {{id: string, name: string, origin: "person" | "model", size: number, sha256: string,
+ *            created_at: number}} ChatFile
+ * @typedef {{id: string, type: "user", text: string, files?: AttachedFile[]}} UserItem
  * @typedef {{id: string, type: "assistant", model_id: string, text: string, thinking: string,
  *            tool_calls: ToolCall[], status: "complete" | "cancelled"}} AssistantItem
  * @typedef {{id: string, type: "tool_result", call_id: string, content: string, is_error: boolean}} ToolResultItem
@@ -38,7 +41,7 @@
  * @typedef {{chat: Chat, items: Item[], awaiting: Awaiting, active_run: {id: string} | null,
  *            last_run: LastRun | null}} ChatSnapshot
  *
- * @typedef {{type: "user", text: string}} UserItemIn
+ * @typedef {{type: "user", text: string, file_ids?: string[]}} UserItemIn
  * @typedef {{type: "tool_result", call_id: string, content: string, is_error?: boolean}} ToolResultIn
  */
 

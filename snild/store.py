@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, NamedTuple, TypeVar
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 LEGACY_USER = "local"  # schema 1 had no accounts: its chats belong to "local" until the first admin exists
 MAX_SESSIONS_PER_USER = 50  # signing in again and again (a script) ends the oldest sessions past this many
 
@@ -97,6 +97,19 @@ SCHEMA_V3 = [
 )""",
 ]
 
+SCHEMA_V4 = [
+    """CREATE TABLE files (
+    id         TEXT PRIMARY KEY,                 -- the bytes are in data_dir/files/<id> (files.py)
+    chat_id    TEXT NOT NULL REFERENCES chats (id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    origin     TEXT NOT NULL CHECK (origin IN ('person', 'model')),  -- who added it: a label for the page
+    size       INTEGER NOT NULL,
+    sha256     TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    UNIQUE (chat_id, name)
+)""",
+]
+
 INTERRUPTED = {"type": "error", "code": "interrupted", "retryable": True,
                "message": "The server stopped before the reply was finished."}
 
@@ -131,6 +144,28 @@ class LastAdmin(Exception):
 
 class UsernameTaken(Exception):
     pass
+
+
+class FileGone(Exception):
+    """The chat (or the person's hold on it) went away while its file was being received."""
+
+
+class UnknownFiles(Exception):
+    """A message attached files that are not (or no longer) the chat's."""
+
+
+class FileLimit(Exception):
+    """A file would pass a limit: code is too_many_files or storage_full; extra holds the numbers."""
+
+    def __init__(self, code: str, message: str, **extra: Any):
+        super().__init__(code)
+        self.code, self.message, self.extra = code, message, extra
+
+
+class FileUsage(NamedTuple):
+    person_bytes: int
+    person_files: int
+    chat_files: int
 
 
 def new_id(prefix: str) -> str:
@@ -179,7 +214,9 @@ class Store:
         self._db.row_factory = sqlite3.Row
         self._db.execute("PRAGMA busy_timeout = 5000")  # first: even switching to WAL may wait for a lock
         self._db.execute("PRAGMA journal_mode = WAL")
-        self._db.execute("PRAGMA synchronous = NORMAL")  # safe with WAL: a power cut loses at most the last step
+        # FULL: a commit is on disk when it returns. A file is removed only after the delete of its row committed,
+        # so a power cut can never bring back a row whose file is gone.
+        self._db.execute("PRAGMA synchronous = FULL")
         self._db.execute("PRAGMA foreign_keys = ON")
         self._migrate()
         self._reader.submit(self._reader_view.connect, self._path).result()
@@ -209,6 +246,9 @@ class Store:
                     self._settle_pending_calls()
             if version < 3:
                 for statement in SCHEMA_V3:
+                    self._db.execute(statement)
+            if version < 4:
+                for statement in SCHEMA_V4:
                     self._db.execute(statement)
             self._db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
@@ -290,16 +330,78 @@ class Store:
         ).rowcount == 1
 
     @on_db_thread
-    def delete_chat(self, user_id: str, chat_id: str) -> bool:
-        """Delete a chat with its items and runs. Refused (RunAlreadyActive) while a reply is being written."""
+    def delete_chat(self, user_id: str, chat_id: str) -> list[str] | None:
+        """Delete a chat with its items, runs and files' rows; returns the ids of its files (to remove from disk
+        now that the delete is committed), or None if there is no such chat. Refused (RunAlreadyActive) while a
+        reply is being written."""
         with self._transaction():
             row = self._db.execute("SELECT 1 FROM chats WHERE id = ? AND user_id = ?", (chat_id, user_id)).fetchone()
             if row is None:
-                return False
+                return None
             if self._db.execute("SELECT 1 FROM runs WHERE chat_id = ? AND status = 'running'", (chat_id,)).fetchone():
                 raise RunAlreadyActive()
+            file_ids = [r["id"] for r in self._db.execute("SELECT id FROM files WHERE chat_id = ?", (chat_id,))]
             self._db.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
-            return True
+            return file_ids
+
+    # --- files (the rows; the bytes are files.py's) ------------------------------------------------------------
+
+    @on_reader
+    def list_files(self, user_id: str, chat_id: str) -> list[dict[str, Any]] | None:
+        """The chat's files, newest first; None if it is not this person's chat."""
+        if self._db.execute("SELECT 1 FROM chats WHERE id = ? AND user_id = ?", (chat_id, user_id)).fetchone() is None:
+            return None
+        rows = self._db.execute("SELECT * FROM files WHERE chat_id = ? ORDER BY created_at DESC, rowid DESC", (chat_id,))
+        return [dict(r) for r in rows.fetchall()]
+
+    @on_reader
+    def get_file(self, user_id: str, chat_id: str, file_id: str) -> dict[str, Any] | None:
+        row = self._db.execute(
+            "SELECT f.* FROM files f JOIN chats c ON c.id = f.chat_id WHERE f.id = ? AND f.chat_id = ? AND c.user_id = ?",
+            (file_id, chat_id, user_id)).fetchone()
+        return dict(row) if row else None
+
+    @on_reader
+    def file_usage(self, user_id: str, chat_id: str) -> FileUsage:
+        return self._file_usage(user_id, chat_id)
+
+    @on_reader
+    def file_ids(self) -> set[str]:
+        return {r[0] for r in self._db.execute("SELECT id FROM files")}
+
+    @on_db_thread
+    def insert_file(self, user_id: str, chat_id: str, file: dict[str, Any], quota_bytes: int) -> dict[str, Any]:
+        """Add a file's row, its bytes already in place. Checks again, in the transaction, that the chat is this
+        person's (FileGone), that the quota and the counts allow it (FileLimit), and gives the file the first
+        free name of its sequence ("a.csv", "a (2).csv", ...)."""
+        from .files import MAX_FILES_PER_CHAT, MAX_FILES_PER_PERSON, numbered  # files imports nothing of this
+
+        with self._transaction():
+            if self._db.execute("SELECT 1 FROM chats WHERE id = ? AND user_id = ?", (chat_id, user_id)).fetchone() is None:
+                raise FileGone()
+            usage = self._file_usage(user_id, chat_id)
+            if usage.chat_files >= MAX_FILES_PER_CHAT:
+                raise FileLimit("too_many_files", f"A chat holds at most {MAX_FILES_PER_CHAT:,} files.")
+            if usage.person_files >= MAX_FILES_PER_PERSON:
+                raise FileLimit("too_many_files", f"One person keeps at most {MAX_FILES_PER_PERSON:,} files.")
+            if usage.person_bytes + file["size"] > quota_bytes:
+                raise FileLimit("storage_full", "", limit_bytes=quota_bytes,
+                                remaining_bytes=max(0, quota_bytes - usage.person_bytes))
+            name, n = file["name"], 1
+            while self._db.execute("SELECT 1 FROM files WHERE chat_id = ? AND name = ?", (chat_id, name)).fetchone():
+                n += 1
+                name = numbered(file["name"], n)
+            row = {**file, "chat_id": chat_id, "name": name}
+            self._db.execute(
+                "INSERT INTO files (id, chat_id, name, origin, size, sha256, created_at)"
+                " VALUES (:id, :chat_id, :name, :origin, :size, :sha256, :created_at)", row)
+            return row
+
+    @on_db_thread
+    def delete_file(self, user_id: str, chat_id: str, file_id: str) -> bool:
+        return self._db.execute(
+            "DELETE FROM files WHERE id = ? AND chat_id = ? AND chat_id IN (SELECT id FROM chats WHERE user_id = ?)",
+            (file_id, chat_id, user_id)).rowcount == 1
 
     # --- people and sessions -----------------------------------------------------------------------------------
 
@@ -508,8 +610,15 @@ class Store:
     def start_run(self, run_id: str, chat_id: str, idempotency_key: str, payload_hash: str, expected_revision: int,
                   items: list[dict[str, Any]], model_id: str, provisional_title: str | None,
                   first_event: dict[str, Any]) -> int:
-        """Claim the chat's run slot and save the posted items, all or nothing. Returns the new revision."""
+        """Claim the chat's run slot and save the posted items, all or nothing. Returns the new revision.
+
+        A user item's file_ids become, in this same transaction, its frozen list of files [{id, name, size}]
+        (the item is changed in place): what the message attached stays as it was when it was sent, even after
+        a file is deleted. An id that is not one of the chat's files refuses the turn (UnknownFiles)."""
         with self._transaction():
+            for item in items:
+                if "file_ids" in item:
+                    item["files"] = self._attached(chat_id, item.pop("file_ids"))
             revision = self._append(chat_id, expected_revision, items, model_id)
             try:
                 self._db.execute(
@@ -605,6 +714,21 @@ class Store:
             (session["user_id"], session["token_hash"], session["user_id"], session["token_hash"],
              MAX_SESSIONS_PER_USER - 1))  # the new one, and the newest others up to the cap
 
+    def _file_usage(self, user_id: str, chat_id: str) -> FileUsage:
+        person = self._db.execute(
+            "SELECT count(*), coalesce(sum(f.size), 0) FROM files f JOIN chats c ON c.id = f.chat_id WHERE c.user_id = ?",
+            (user_id,)).fetchone()
+        chat = self._db.execute("SELECT count(*) FROM files WHERE chat_id = ?", (chat_id,)).fetchone()
+        return FileUsage(person[1], person[0], chat[0])
+
+    def _attached(self, chat_id: str, file_ids: list[str]) -> list[dict[str, Any]]:
+        rows = {r["id"]: r for r in self._db.execute(
+            f"SELECT id, name, size FROM files WHERE chat_id = ? AND id IN ({','.join('?' * len(file_ids))})",
+            (chat_id, *file_ids))}
+        if len(rows) != len(file_ids):
+            raise UnknownFiles()
+        return [{"id": i, "name": rows[i]["name"], "size": rows[i]["size"]} for i in file_ids]
+
     def _items(self, chat_id: str) -> list[dict[str, Any]]:
         rows = self._db.execute("SELECT data FROM items WHERE chat_id = ? ORDER BY seq", (chat_id,)).fetchall()
         return [json.loads(r["data"]) for r in rows]
@@ -649,6 +773,9 @@ class _ReaderView:
 
     def _items(self, chat_id: str) -> list[dict[str, Any]]:
         return Store._items(self, chat_id)  # type: ignore[arg-type]
+
+    def _file_usage(self, user_id: str, chat_id: str) -> FileUsage:
+        return Store._file_usage(self, user_id, chat_id)  # type: ignore[arg-type]
 
 
 class _Transaction:

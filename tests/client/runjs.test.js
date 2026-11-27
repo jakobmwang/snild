@@ -90,11 +90,14 @@ test("an SVG that has its namespace keeps it", () => {
 });
 
 test("the PDFs whose hidden text was kept from the code are named whole, read back, and dropped if malformed", () => {
-  const hidden = [{ file: "demo/report.pdf", elements: 1, source: `sha256:${"a".repeat(64)}` }];
+  const hidden = [{ file: "demo/report.pdf", elements: 1, source: `sha256:${"a".repeat(64)}` },
+    { file: "report.pdf", elements: 2, source: `sha256:${"b".repeat(64)}`, id: "file_abc" }]; // a chat file: its id
   const { content } = resultText({ status: "ok", seconds: 1, value: "x".repeat(60_000), hidden }, 50_000);
   assert.ok(content.length <= 50_000);
   assert.deepEqual(parseResult(content)?.hidden, hidden);
-  for (const wrong of [[{ file: 3, elements: 1, source: "" }], [{ file: "a.pdf", elements: 0, source: "" }], "a.pdf"]) {
+  const good = `sha256:${"c".repeat(64)}`;
+  for (const wrong of [[{ file: 3, elements: 1, source: "" }], [{ file: "a.pdf", elements: 0, source: "" }], "a.pdf",
+    [{ file: "a.pdf", elements: 1, source: good, id: 7 }]]) {
     const read = parseResult(JSON.stringify({ run_js: 1, status: "ok", seconds: 1, hidden: wrong }));
     assert.ok(read && read.hidden === undefined, JSON.stringify(wrong));
   }

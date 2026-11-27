@@ -41,6 +41,37 @@ export function saveDraft(userId, chatId, text) {
   }
 }
 
+const CHIPS = "snild.chips.";
+
+/**
+ * The files attached to the draft (their ids), kept with it: they are dropped on load if no longer in the chat.
+ * @param {string} userId
+ * @param {string | null} chatId
+ * @returns {string[]}
+ */
+export function loadChips(userId, chatId) {
+  try {
+    const ids = JSON.parse(sessionStorage.getItem(`${CHIPS}${userId}.${chatId || "new"}`) || "[]");
+    return Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * @param {string} userId
+ * @param {string | null} chatId
+ * @param {string[]} ids
+ */
+export function saveChips(userId, chatId, ids) {
+  try {
+    if (ids.length) sessionStorage.setItem(`${CHIPS}${userId}.${chatId || "new"}`, JSON.stringify(ids));
+    else sessionStorage.removeItem(`${CHIPS}${userId}.${chatId || "new"}`);
+  } catch {
+    // no storage: they last as long as the page
+  }
+}
+
 const UNSURE = "snild.unsure.";
 
 /**

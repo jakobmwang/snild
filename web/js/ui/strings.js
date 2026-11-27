@@ -70,8 +70,7 @@ export const text = Object.freeze({
 
   // Settings (admins)
   settingsTitle: "Settings",
-  signInGroup: "Sign-in",
-  chatsKept: "Chats are kept until people delete them.",
+  chatsKept: "Chats and their files are kept until people delete them.",
   noLimit: "No limit",
   unsaved: "You have unsaved changes.",
   discard: "Discard",
@@ -191,6 +190,40 @@ export const text = Object.freeze({
   /** @param {string} file @param {{page: number | null, kind: string, text: string}[]} items */
   hiddenQuote: (file, items) => [`Hidden text in ${file}, kept from the model until now:`,
     ...items.map((item) => `> ${text.hiddenWhere(item)}: ${item.text.replace(/\r\n|\r|\n/g, "\n> ")}`)].join("\n"),
+  // Files
+  files: "Files",
+  /** @param {number} count */
+  filesButton: (count) => (count ? `Files (${count})` : "Files"),
+  closeFiles: "Close files",
+  noFiles: "No files here yet. Attach files with the paperclip, by pasting them, or by dropping them on the chat.",
+  attachFiles: "Attach files",
+  attachedFiles: "Attached files",
+  /** @param {string} name */
+  removeFile: (name) => `Remove ${name}`,
+  uploading: "Uploading…",
+  uploadFailed: "Could not upload.",
+  sendWaits: "Send (waiting for files)",
+  folderRefused: "A folder cannot be attached. Attach the files in it instead.",
+  byYou: "You",
+  byModel: "Model",
+  download: "Download",
+  /** @param {string} name */
+  downloadFile: (name) => `Download ${name}`,
+  /** @param {string} name */
+  deleteFile: (name) => `Delete ${name}`,
+  deleteFileTitle: "Delete this file?",
+  /** @param {string} name */
+  deleteFileBody: (name) => `“${name}” is removed from this chat. Messages that attached it keep its name and size.`,
+  /** @param {number} bytes */
+  size: (bytes) => (bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KiB`
+    : `${(bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, "")} MiB`),
+  /** @param {number} seconds since 1970, as the server says */
+  when: (seconds) => {
+    const date = new Date(seconds * 1000);
+    return date.toDateString() === new Date().toDateString()
+      ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : date.toLocaleDateString([], { day: "numeric", month: "short" });
+  },
   toolsWaiting: "The code in this answer has not run yet.",
   signOutFailed: "Could not sign out: snild cannot be reached. Try again.",
   renameFailed: "The chat could not be renamed. Try again.",
@@ -211,5 +244,6 @@ export const text = Object.freeze({
     bad_response: "The model sent a reply snild could not use.",
     internal: "Something went wrong on the server.",
     not_found: "This chat no longer exists.",
+    unknown_files: "A file attached to the message is no longer in this chat. Remove it and send again.",
   })[code] || "Something went wrong.",
 });

@@ -1,9 +1,9 @@
 // @ts-check
 /**
- * The Settings page: what an admin may change, drawn from the server's registry (snild/settings.py). Each
- * setting is a whole number of days, with a "No limit" switch where that is allowed. Changes are saved together
- * from a bar that appears once something changed; the server checks every value again and names what is wrong
- * beside its field.
+ * The Settings page: what an admin may change, drawn from the server's registry (snild/settings.py), in a card
+ * per group. Each setting is a whole number in its unit (days, MiB), with a "No limit" switch where that is
+ * allowed. Changes are saved together from a bar that appears once something changed; the server checks every
+ * value again and names what is wrong beside its field.
  */
 
 import { ApiError } from "../runtime/api.js";
@@ -83,13 +83,15 @@ export function settingsPage({ api, onSignedOut }) {
           el("label", { for: id, class: "setting-label" }, setting.label),
           el("p", { id: `${id}-help`, class: "hint" }, setting.help)),
         el("div", { class: "setting-control" },
-          el("div", { class: "unit-input" }, days, el("span", { class: "unit", "aria-hidden": "true" }, "days")),
+          el("div", { class: "unit-input" }, days, el("span", { class: "unit", "aria-hidden": "true" }, setting.unit)),
           none ? el("label", { class: "switch" }, none, el("span", { class: "switch-track", "aria-hidden": "true" }),
             el("span", {}, text.noLimit)) : null,
           error)) };
     });
-    cards.replaceChildren(el("section", { class: "card", "aria-labelledby": "group-sign-in" },
-      el("h2", { id: "group-sign-in" }, text.signInGroup), ...rows.map((row) => row.node)));
+    // One card per group, in the order the server lists them.
+    const groups = [...new Set(settings.map((setting) => setting.group))];
+    cards.replaceChildren(...groups.map((group, i) => el("section", { class: "card", "aria-labelledby": `group-${i}` },
+      el("h2", { id: `group-${i}` }, group), ...rows.filter((row) => row.setting.group === group).map((row) => row.node))));
     refresh();
   }
 

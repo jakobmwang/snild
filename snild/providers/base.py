@@ -64,6 +64,23 @@ class ModelRequest:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+def user_text(item: dict[str, Any]) -> str:
+    """A user message as a model reads it: its text, then one line naming the files it attached (the item's
+    text stays exactly what the person wrote; titles and the transcript use that)."""
+    files = item.get("files") or []
+    if not files:
+        return item["text"]
+    names = "; ".join(f"{f['name']} ({_size(f['size'])})" for f in files)
+    return f"{item['text']}\n\n[Attached files: {names}]"  # which reader suits which file is the tools' to say
+
+
+def _size(n: int) -> str:
+    for unit, step in (("MiB", 1024 * 1024), ("KiB", 1024)):
+        if n >= step:
+            return f"{n / step:.1f}".removesuffix(".0") + f" {unit}"
+    return f"{n} bytes"
+
+
 class ProviderError(Exception):
     """A failure the browser can explain. code is stable: rate_limit, context_length, unavailable, auth,
     timeout, bad_response."""

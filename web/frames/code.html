@@ -10,7 +10,7 @@
 // Each run gets a fresh classic worker made from a blob (it inherits the frame's policy): d3 and a small
 // virtual page (linkedom) as `document`, the model's code wrapped in an async function, and console captured.
 // The worker reaches files, SQL and PDFs only through fs, sql() and pdf, which ask the page over this frame's one
-// port.
+// port; what it writes (fs.writeFile) goes the same way, to be saved in the chat by the page.
 // The page enforces the time limit from outside: it asks this frame to cancel a run (the worker is terminated)
 // and replaces the frame if it stops answering. Everything sent back is bounded first.
 "use strict";
@@ -22,6 +22,8 @@
   const MAX_CONSOLE = 180_000;
   const MAX_ERROR = 20_000;
   const MAX_ASK = 1_000_000;
+  const MAX_WRITE = 25 * 1024 * 1024; // the bytes of one fs.writeFile (the page holds a call to 25 MiB in all)
+  const MAX_SQL_FILES = 100;
 
   // Runs in the worker, before the model's code (after d3, which the page sent). Its names start with __ so they
   // stay out of the code's way; fs, sql, pdf, d3, document, window and DOMParser are what the code is promised.
@@ -47,7 +49,7 @@ const __ask = (() => {
     if (typeof data.error === "string") waiter.reject(data.error);
     else waiter.resolve(data.value);
   });
-  return (op, args) => {
+  return (op, args, transfer = []) => {
     // Made here, so its stack points at the line of the code that called sql() or fs, should it fail.
     const failure = new Error();
     return new Promise((resolve, reject) => {
@@ -57,7 +59,7 @@ const __ask = (() => {
         failure.stack = "Error: " + message + String(failure.stack).replace(/^Error\\n?/, "\\n");
         reject(failure);
       } });
-      postMessage({ type: "ask", n: next, op, args });
+      postMessage({ type: "ask", n: next, op, args }, transfer);
     });
   };
 })();
@@ -65,8 +67,28 @@ for (const level of ["log", "info", "debug", "warn", "error", "table"]) {
   const label = level === "warn" || level === "error" ? level + ": " : "";
   console[level] = (...parts) => postMessage({ type: "log", text: label + parts.map((part) => __show(part)).join(" ") });
 }
-const fs = Object.freeze({ readdir: () => __ask("readdir", {}), readFile: (name) => __ask("readFile", { name: String(name) }) });
-const sql = (query) => __ask("sql", { query: String(query) });
+const __bytes = (data) => {
+  const size = typeof data === "string" ? null : data instanceof ArrayBuffer || ArrayBuffer.isView(data) ? data.byteLength : -1;
+  if (size === -1) throw new TypeError("fs.writeFile takes a string, a Uint8Array or an ArrayBuffer.");
+  if (size !== null && size > ${MAX_WRITE}) throw new RangeError("The file is too large to write (at most 25 MiB).");
+  const bytes = typeof data === "string" ? new TextEncoder().encode(data).buffer : data instanceof ArrayBuffer
+    ? data.slice(0) : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+  if (bytes.byteLength > ${MAX_WRITE}) throw new RangeError("The file is too large to write (at most 25 MiB).");
+  return bytes;
+};
+const fs = Object.freeze({
+  readdir: () => __ask("readdir", {}),
+  readFile: (name) => __ask("readFile", { name: String(name) }),
+  writeFile: async (name, data) => {
+    const bytes = __bytes(data);
+    return __ask("writeFile", { name: String(name), bytes }, [bytes]); // handed over, not copied again
+  },
+});
+const sql = (query, options) => {
+  const files = options && options.files;
+  if (files !== undefined && !Array.isArray(files)) throw new TypeError("sql()'s files is a list of file names.");
+  return __ask("sql", { query: String(query), ...(files ? { files: files.map(String) } : {}) });
+};
 const pdf = Object.freeze({ html: (name) => __ask("pdf", { name: String(name) }) });
 const __encode = (value) => {
   if (value && typeof value.node === "function" && value.node() && value.node().nodeType) value = value.node();
@@ -140,10 +162,10 @@ __main().then((value) => postMessage({ type: "done", ...__encode(value) }),
     run.kept += Math.min(text.length, room) + 1;
   }
 
-  // What each request may carry: these string fields and nothing else.
-  const FIELDS = { readdir: [], readFile: ["name"], sql: ["query"], pdf: ["name"] };
+  // What each request may carry: these string fields and nothing else (and a write its bytes, a query its files).
+  const FIELDS = { readdir: [], readFile: ["name"], writeFile: ["name"], sql: ["query"], pdf: ["name"] };
 
-  /** Pass a request on to the page as a new message holding only its expected, bounded strings. */
+  /** Pass a request on to the page as a new message holding only its expected, bounded fields. */
   function ask(run, data) {
     if (!Number.isInteger(data.n)) return;
     const op = typeof data.op === "string" && Object.hasOwn(FIELDS, data.op) ? data.op : null; // a string, never coerced
@@ -156,11 +178,22 @@ __main().then((value) => postMessage({ type: "done", ...__encode(value) }),
       else if (given[key].length > MAX_ASK) problem = "The request is too large.";
       else args[key] = given[key];
     }
+    if (!problem && op === "writeFile") {
+      if (!(given.bytes instanceof ArrayBuffer)) problem = "The request is not valid.";
+      else if (given.bytes.byteLength > MAX_WRITE) problem = "The file is too large to write (at most 25 MiB).";
+      else args.bytes = given.bytes;
+    }
+    if (!problem && op === "sql" && given.files !== undefined) {
+      const files = given.files;
+      if (!Array.isArray(files) || files.length > MAX_SQL_FILES
+          || !files.every((name) => typeof name === "string" && name.length <= 1000)) problem = "The request is not valid.";
+      else args.files = [...files];
+    }
     if (problem) {
       run.worker.postMessage({ n: data.n, error: problem });
       return;
     }
-    port.postMessage({ type: "ask", job: run.job, n: data.n, op, args });
+    port.postMessage({ type: "ask", job: run.job, n: data.n, op, args }, args.bytes ? [args.bytes] : []);
   }
 
   /** End the run with what it gave (or its error, or nothing if it was cancelled), and say so to the page. */
@@ -200,7 +233,9 @@ __main().then((value) => postMessage({ type: "done", ...__encode(value) }),
       else if (data.type === "run") start(data.job, String(data.code));
       else if (data.type === "cancel" && active?.job === data.job) finish(active, { cancelled: true });
       else if (data.type === "answer" && active?.job === data.job) {
-        active.worker.postMessage(typeof data.error === "string" ? { n: data.n, error: data.error } : { n: data.n, value: data.value });
+        const value = data.value;
+        active.worker.postMessage(typeof data.error === "string" ? { n: data.n, error: data.error } : { n: data.n, value },
+          value instanceof Uint8Array ? [value.buffer] : []); // a file's bytes are handed over, not copied
       }
     };
     port.postMessage({ type: "ready" });

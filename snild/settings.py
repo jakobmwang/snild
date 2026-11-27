@@ -25,16 +25,25 @@ class Setting:
     min: int
     max: int
     nullable: bool  # whether "no limit" may be chosen
+    unit: str       # shown beside the number: "days", "MiB"
+    group: str      # the card it is shown on
 
 
 REGISTRY = (
     Setting("session_idle_days", "Stay signed in while unused",
             "A sign-in ends after this many days without use. No limit: time unused never ends it; the "
-            "maximum below still does.", 7, 1, 3650, True),
+            "maximum below still does.", 7, 1, 3650, True, "days", "Sign-in"),
     Setting("session_max_days", "Stay signed in at most",
             "A sign-in ends this many days after it began, used or not. A shorter limit makes a stolen sign-in "
             "useless sooner. No limit: it lasts until sign-out, a password change or the account is disabled; "
-            "browsers keep a sign-in for 400 days at most.", 30, 1, 3650, True),
+            "browsers keep a sign-in for 400 days at most.", 30, 1, 3650, True, "days", "Sign-in"),
+    Setting("file_max_mb", "Largest file",
+            "The largest file anyone can add to a chat, by upload or from the model's code. Files already there "
+            "stay when this is lowered.", 25, 1, 100, False, "MiB", "Files"),
+    Setting("person_files_max_mb", "Storage per person",
+            "All of one person's files together, in all their chats. When it is full, they can delete files or "
+            "chats to make room. Files already there stay when this is lowered.", 1000, 1, 1_000_000, False,
+            "MiB", "Files"),
 )
 BY_KEY = {setting.key: setting for setting in REGISTRY}
 
@@ -83,6 +92,11 @@ class Settings:
         value = self.values[key]
         return None if value is None else value * DAY_S
 
+    def bytes(self, key: str) -> int:
+        """A MiB setting in bytes."""
+        return int(self.values[key]) * 1024 * 1024
+
     def describe(self) -> list[dict[str, Any]]:
         return [{"key": s.key, "label": s.label, "help": s.help, "default": s.default, "min": s.min, "max": s.max,
-                 "nullable": s.nullable, "value": self.values[s.key]} for s in REGISTRY]
+                 "nullable": s.nullable, "unit": s.unit, "group": s.group, "value": self.values[s.key]}
+                for s in REGISTRY]

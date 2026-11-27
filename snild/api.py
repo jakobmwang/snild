@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from collections.abc import AsyncIterator
 from contextlib import aclosing
 from typing import Annotated, Any, Literal
@@ -11,12 +12,28 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from starlette.background import BackgroundTask
 
 from . import __version__
 from .auth import Accounts, AuthError, Issued, SignedIn, public_user, without_controls
+from .files import (
+    HARD_MAX_FILE_BYTES,
+    MAX_FILES_PER_CHAT,
+    MAX_FILES_PER_PERSON,
+    NAME_HEADER,
+    ORIGIN_HEADER,
+    ORIGINS,
+    FileError,
+    Files,
+    MiB,
+    content_disposition,
+    decode_name,
+    new_file_id,
+    view,
+)
 from .runs import Run, RunManager, StoredRun, TurnError
 from .settings import SettingsError, validate
-from .store import Store
+from .store import FileGone, FileLimit, Store
 from .transcript import (
     MAX_CALL_ID_CHARS,
     MAX_CALLS_PER_STEP,
@@ -59,9 +76,21 @@ class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+MAX_ATTACHED = 100  # files one message may attach
+
+
 class UserItemIn(Strict):
     type: Literal["user"]
     text: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
+    file_ids: list[Annotated[str, Field(min_length=1, max_length=100)]] = Field(default_factory=list,
+                                                                              max_length=MAX_ATTACHED)
+
+    @field_validator("file_ids")
+    @classmethod
+    def each_once(cls, file_ids: list[str]) -> list[str]:
+        if len(set(file_ids)) != len(file_ids):
+            raise ValueError("a file is attached twice")
+        return file_ids
 
     @field_validator("text")
     @classmethod
@@ -160,6 +189,10 @@ def _store(request: Request) -> Store:
 
 def _runs(request: Request) -> RunManager:
     return request.app.state.runs
+
+
+def _files(request: Request) -> Files:
+    return request.app.state.files
 
 
 async def _chat_or_404(request: Request, user: SignedIn, chat_id: str) -> dict[str, Any]:
@@ -390,9 +423,10 @@ async def rename_chat(request: Request, user: UserDep, chat_id: str, body: Renam
 @router.delete("/chats/{chat_id}")
 async def delete_chat(request: Request, user: UserDep, chat_id: str) -> dict[str, Any]:
     try:
-        await _runs(request).delete_chat(user.user_id, chat_id)
+        file_ids = await _runs(request).delete_chat(user.user_id, chat_id)
     except TurnError as e:
         raise ApiError(e.status, e.code, e.message, **e.extra) from None
+    await _files(request).remove(file_ids)  # the rows are gone (committed): now the bytes
     return {"deleted": chat_id}
 
 
@@ -401,11 +435,107 @@ async def post_turn(request: Request, user: UserDep, chat_id: str, body: TurnIn)
     try:
         source = await _runs(request).start_turn(
             user.user_id, chat_id, body.model_id, body.expected_revision, body.idempotency_key,
-            [item.model_dump() for item in body.items],
+            # A message without files is posted as before files existed, so a retry across an upgrade matches.
+            [item.model_dump(exclude={"file_ids"} if isinstance(item, UserItemIn) and not item.file_ids else None)
+             for item in body.items],
         )
     except TurnError as e:
         raise ApiError(e.status, e.code, e.message, **e.extra) from None
     return _ndjson(request, user, source.listen())
+
+
+# --- files ------------------------------------------------------------------------------------------------------
+
+def _mib(n: int) -> str:
+    return f"{n / MiB:.1f}".removesuffix(".0") + " MiB"
+
+
+@router.get("/chats/{chat_id}/files")
+async def list_files(request: Request, user: UserDep, chat_id: str) -> dict[str, Any]:
+    rows = await _store(request).list_files(user.user_id, chat_id)
+    if rows is None:
+        raise ApiError(404, "not_found", "There is no such chat.")
+    return {"files": [view(row) for row in rows]}
+
+
+@router.post("/chats/{chat_id}/files", status_code=201)
+async def upload_file(request: Request, user: UserDep, chat_id: str) -> dict[str, Any]:
+    """A file's bytes as the body, its name in X-Snild-Filename, who adds it in X-Snild-Origin. Everything that
+    can be checked is checked before the body is read; the limits again while it is read and when it is saved."""
+    store, settings = _store(request), _accounts(request).settings
+    try:
+        name = decode_name(request.headers.get(NAME_HEADER))
+        origin = request.headers.get(ORIGIN_HEADER, "person")
+        if origin not in ORIGINS:
+            raise FileError(422, "invalid_origin", "A file is added by the person or by the model.")
+        if await store.get_chat(user.user_id, chat_id) is None:
+            raise FileError(404, "not_found", "There is no such chat.")
+        limit = min(settings.bytes("file_max_mb"), HARD_MAX_FILE_BYTES)
+        quota = settings.bytes("person_files_max_mb")
+
+        def too_large() -> FileError:
+            return FileError(413, "file_too_large", f"The file is larger than {_mib(limit)}, the most a file may be.",
+                             limit_bytes=limit)
+
+        declared = int(request.headers.get("content-length") or 0)
+        if declared > limit:
+            raise too_large()
+        usage = await store.file_usage(user.user_id, chat_id)
+        if usage.chat_files >= MAX_FILES_PER_CHAT:
+            raise FileError(413, "too_many_files", f"A chat holds at most {MAX_FILES_PER_CHAT:,} files.")
+        if usage.person_files >= MAX_FILES_PER_PERSON:
+            raise FileError(413, "too_many_files", f"One person keeps at most {MAX_FILES_PER_PERSON:,} files.")
+        room = max(0, quota - usage.person_bytes)
+        if declared > room:
+            raise _storage_full(quota, usage.person_bytes)
+        # Counted while it arrives (a length can be missing or wrong): it stops at the limit or the room left.
+        temp, size, sha256 = await _files(request).receive(
+            request.stream(), min(limit, room),
+            lambda size: too_large() if size > limit else _storage_full(quota, usage.person_bytes))
+        file_id = new_file_id()
+        row = {"id": file_id, "name": name, "origin": origin, "size": size, "sha256": sha256, "created_at": time.time()}
+        try:
+            saved = await _files(request).publish(temp, file_id,
+                                                  lambda: store.insert_file(user.user_id, chat_id, row, quota))
+        except FileGone:
+            raise FileError(404, "not_found", "There is no such chat.") from None
+        except FileLimit as e:
+            if e.code == "storage_full":
+                raise _storage_full(quota, quota - e.extra["remaining_bytes"]) from None
+            raise FileError(413, e.code, e.message) from None
+    except FileError as e:
+        raise ApiError(e.status, e.code, e.message, e.retryable, **e.extra) from None
+    return {"file": view(saved)}
+
+
+def _storage_full(quota: int, used: int) -> FileError:
+    left = max(0, quota - used)
+    return FileError(413, "storage_full", f"There is no room for this file: {_mib(left)} of your {_mib(quota)} is left. "
+                     "Delete files or chats to make room.", limit_bytes=quota, remaining_bytes=left)
+
+
+@router.get("/chats/{chat_id}/files/{file_id}")
+async def download_file(request: Request, user: UserDep, chat_id: str, file_id: str) -> StreamingResponse:
+    """The bytes, always as an attachment that nothing renders: snild never vouches for what a file holds."""
+    row = await _store(request).get_file(user.user_id, chat_id, file_id)
+    download = await _files(request).open(file_id) if row is not None else None
+    if row is None or download is None:
+        raise ApiError(404, "not_found", "There is no such file.")
+    return StreamingResponse(download.chunks(), media_type="application/octet-stream",
+                             background=BackgroundTask(download.close), headers={
+                                 "content-disposition": content_disposition(row["name"]),
+                                 "content-length": str(row["size"]),
+                                 "content-security-policy": "sandbox",
+                                 "cache-control": "private, no-store",
+                             })
+
+
+@router.delete("/chats/{chat_id}/files/{file_id}")
+async def delete_file(request: Request, user: UserDep, chat_id: str, file_id: str) -> dict[str, Any]:
+    if not await _store(request).delete_file(user.user_id, chat_id, file_id):
+        raise ApiError(404, "not_found", "There is no such file.")
+    await _files(request).remove([file_id])
+    return {"deleted": file_id}
 
 
 def _active_run(request: Request, user: SignedIn, chat_id: str, run_id: str) -> Run | None:

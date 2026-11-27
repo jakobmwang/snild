@@ -32,7 +32,7 @@ from .providers.base import (
     ToolCallDelta,
     ToolCallStart,
 )
-from .store import INTERRUPTED, RevisionConflict, RunAlreadyActive, RunAlreadyEnded, Store, new_id
+from .store import INTERRUPTED, RevisionConflict, RunAlreadyActive, RunAlreadyEnded, Store, UnknownFiles, new_id
 from .tools import ToolContract
 from .transcript import (
     MAX_CALL_ID_CHARS,
@@ -254,6 +254,8 @@ class RunManager:
                     raise _revision_conflict(e.current) from None
                 if isinstance(e, RunAlreadyActive):
                     raise _run_active(None) from None
+                if isinstance(e, UnknownFiles):
+                    raise TurnError(422, "unknown_files", "A file attached to the message is no longer in this chat.") from None
                 raise
             run.mark_saved()
             run.task = asyncio.create_task(
@@ -281,9 +283,9 @@ class RunManager:
         await run.ended.wait()
         return run.status
 
-    async def delete_chat(self, user_id: str, chat_id: str) -> None:
+    async def delete_chat(self, user_id: str, chat_id: str) -> list[str]:
         """Delete a chat, refused while a reply is being written. It takes the chat's start lock, so a turn
-        can never start in a chat that is being deleted."""
+        can never start in a chat that is being deleted. Returns the ids of its files, whose rows are gone."""
         async with self._one_start_at_a_time(chat_id):
             if await self.store.get_chat(user_id, chat_id) is None:  # first: say nothing about others' chats
                 raise TurnError(404, "not_found", "There is no such chat.")
@@ -295,8 +297,9 @@ class RunManager:
                 deleted = await self.store.delete_chat(user_id, chat_id)
             except RunAlreadyActive:
                 raise _run_active(None) from None
-            if not deleted:
+            if deleted is None:
                 raise TurnError(404, "not_found", "There is no such chat.")
+            return deleted
 
     async def stored_run(self, chat_id: str, run_id: str) -> dict[str, Any] | None:
         """A run as saved. One the database calls running that no live task holds is ended first."""
@@ -488,7 +491,7 @@ def check_calls(contract: ToolContract, assistant: dict[str, Any], calls: dict[s
 
 def _stored(item: dict[str, Any]) -> dict[str, Any]:
     if item["type"] == "user":
-        return stored_user_item(item["text"])
+        return stored_user_item(item["text"], item.get("file_ids") or [])
     return stored_tool_result(item["call_id"], item["content"], item["is_error"])
 
 

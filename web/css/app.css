@@ -97,6 +97,7 @@
     transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease), opacity var(--fast) var(--ease);
   }
   .button:hover { background: var(--hover); }
+  a.button { color: inherit; text-decoration: none; }
   .button-primary { background: var(--text); color: var(--bg); border-color: transparent; }
   .button-primary:hover { background: var(--text); opacity: 0.86; }
   .button-primary:disabled { opacity: 0.45; }
@@ -289,7 +290,7 @@
   /* Messages */
   .message { margin: 0 0 var(--space-6); animation: enter 180ms var(--ease); }
   @keyframes enter { from { opacity: 0; transform: translateY(4px); } }
-  .message-user { display: flex; justify-content: flex-end; }
+  .message-user { display: flex; flex-direction: column; align-items: flex-end; }
   .bubble {
     background: var(--bubble); padding: 0.625rem 1rem; border-radius: var(--radius-xl) var(--radius-xl) var(--radius-s) var(--radius-xl);
     max-width: min(85%, 36rem); white-space: pre-wrap; overflow-wrap: anywhere;
@@ -398,7 +399,7 @@
   .composer-box {
     display: flex; align-items: flex-end; gap: var(--space-2);
     background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-xl);
-    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-5); box-shadow: var(--shadow);
+    padding: var(--space-2); box-shadow: var(--shadow); /* the paperclip sits where the text used to start */
     transition: border-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
   }
   .composer-box:focus-within { border-color: var(--accent); box-shadow: var(--shadow), var(--ring); }
@@ -416,6 +417,58 @@
   .send:not(:disabled):hover { transform: scale(1.05); }
   .send:disabled { opacity: 0.2; }
   .send.is-stop:disabled { opacity: 0.5; }
+  .attach {
+    width: 2.25rem; height: 2.25rem; flex: none; border: 0; border-radius: 50%; display: grid; place-items: center;
+    background: transparent; color: var(--muted); transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+  }
+  .attach:not(:disabled):hover { background: var(--hover); color: var(--text); }
+  .attach:disabled { opacity: 0.4; }
+
+  /* Files: chips under the box and on sent messages, the button in the header, and the panel */
+  .composer-chips, .message-files { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .message-files { justify-content: flex-end; max-width: min(85%, 36rem); }
+  .file-chip {
+    display: inline-flex; align-items: center; gap: var(--space-2); max-width: 100%; min-width: 0;
+    border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+    padding: 0.25rem var(--space-2); font-size: 0.8125rem;
+  }
+  .file-chip .icon { width: 1rem; height: 1rem; flex: none; color: var(--muted); }
+  .file-chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 16rem; }
+  .file-chip-size { color: var(--muted); white-space: nowrap; }
+  .file-chip.is-uploading { border-style: dashed; }
+  .file-chip.is-failed { border-color: var(--danger); }
+  .file-chip.is-failed .file-chip-size { color: var(--danger); white-space: normal; }
+  .chip-remove {
+    display: grid; place-items: center; width: 1.25rem; height: 1.25rem; flex: none; border: 0; border-radius: 50%;
+    background: transparent; color: var(--muted);
+  }
+  .chip-remove:hover { background: var(--hover); color: var(--text); }
+  .chip-remove .icon { width: 0.875rem; height: 0.875rem; }
+  .files-toggle {
+    display: inline-flex; align-items: center; gap: var(--space-2); flex: none; border: 0; background: transparent;
+    color: var(--muted); border-radius: var(--radius-s); padding: 0.375rem var(--space-2); font-size: 0.875rem;
+  }
+  .files-toggle:hover, .files-toggle[aria-expanded="true"] { background: var(--hover); color: var(--text); }
+  .files-toggle .icon { width: 1.125rem; height: 1.125rem; }
+  .chat-view { position: relative; overflow: clip; } /* the closed files panel waits beyond its right edge */
+  .chat-view.is-dropping .scroll-area { outline: 2px dashed var(--accent); outline-offset: -8px; border-radius: var(--radius-xl); }
+  .files-panel {
+    position: absolute; inset: 0 0 0 auto; z-index: 30; width: min(90vw, 24rem); display: flex; flex-direction: column;
+    background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow-l);
+    transform: translateX(100%); visibility: hidden; transition: transform 200ms var(--ease), visibility 200ms;
+  }
+  .files-open .files-panel { transform: none; visibility: visible; }
+  .files-head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4); min-height: 3.5rem; }
+  .files-head h2 { flex: 1; margin: 0; font-size: 0.9375rem; }
+  .files-empty { margin: 0; padding: var(--space-2) var(--space-4); color: var(--muted); font-size: 0.875rem; }
+  .files-list { list-style: none; margin: 0; padding: 0 var(--space-2) var(--space-4); overflow-y: auto; }
+  .file-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-2); border-radius: var(--radius-s); }
+  .file-row:hover { background: var(--hover); }
+  .file-row-text { flex: 1; min-width: 10rem; display: flex; flex-direction: column; }
+  .file-row-name { overflow-wrap: anywhere; }
+  .file-row-meta { color: var(--muted); font-size: 0.8125rem; }
+  .file-row-actions { display: flex; gap: var(--space-1); margin-left: auto; }
+  .files-backdrop { display: none; }
 
   .notice { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-4) var(--space-6); margin-bottom: var(--space-4); }
   .notice-error { background: var(--error-bg); color: var(--error-text); border-color: transparent; }
@@ -523,6 +576,9 @@
     .rail-inner { width: 100%; }
     .rail-open .rail { transform: none; box-shadow: var(--shadow-l); }
     .rail-open .rail-backdrop { display: block; position: fixed; inset: 0; z-index: 39; background: rgb(0 0 0 / 0.35); }
+    .files-panel { position: fixed; z-index: 40; }
+    .files-open .files-backdrop { display: block; position: fixed; inset: 0; z-index: 39; background: rgb(0 0 0 / 0.35); }
+    .files-toggle .files-label { display: none; } /* the icon and the count stay */
     .chat-header, .dock { padding-inline: var(--space-3); }
     .transcript { padding-inline: var(--space-3); }
     .rail-more { opacity: 1; }

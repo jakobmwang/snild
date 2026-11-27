@@ -6,7 +6,8 @@
  * share the cookie).
  *
  * @typedef {{type: "run_started", chat: string, run: string} | {type: "run_ended", chat: string}
- *   | {type: "chats_changed"} | {type: "signed_in", user?: string} | {type: "signed_out"}} TabMessage
+ *   | {type: "chats_changed"} | {type: "files_changed", chat: string} | {type: "signed_in", user?: string}
+ *   | {type: "signed_out"}} TabMessage
  */
 
 export class TabSync {

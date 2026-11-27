@@ -16,7 +16,7 @@
  *   phase: where this browser is with running the call (until its result is there); none once it has one, or
  *   when it was read from the server without a result (not run yet). unsaved: the result was made here and the
  *   server does not have it yet
- * @typedef {{kind: "user", id: string, text: string}} UserMessage
+ * @typedef {{kind: "user", id: string, text: string, files: import("./protocol.js").AttachedFile[]}} UserMessage
  * @typedef {{kind: "assistant", id: string, text: string, thinking: string, tools: ToolView[],
  *            status: "complete" | "cancelled" | "writing"}} AssistantMessage
  * @typedef {UserMessage | AssistantMessage} Message
@@ -84,7 +84,7 @@ export function messagesOf(items) {
   const calls = new Map();
   for (const item of items) {
     if (item.type === "user") {
-      messages.push({ kind: "user", id: item.id, text: item.text });
+      messages.push({ kind: "user", id: item.id, text: item.text, files: item.files ?? [] });
     } else if (item.type === "assistant") {
       const tools = item.tool_calls.map((call) => {
         /** @type {ToolView} */
@@ -187,9 +187,10 @@ export function applyEvent(state, event) {
  * The user's message, shown at once while it is being sent (it has no id until the server saves it).
  * @param {ChatState} state
  * @param {string} text
+ * @param {import("./protocol.js").AttachedFile[]} [files] what it attaches
  */
-export function addPendingMessage(state, text) {
-  state.messages.push({ kind: "user", id: "", text });
+export function addPendingMessage(state, text, files = []) {
+  state.messages.push({ kind: "user", id: "", text, files });
   state.outcome = null;
 }
 

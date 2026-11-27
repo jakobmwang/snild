@@ -22,16 +22,19 @@ def change(client, **values):
 
 def test_the_defaults_and_what_an_admin_may_set(client):
     described = client.http.get("/api/v1/admin/settings").json()["settings"]
-    assert [(s["key"], s["value"], s["nullable"]) for s in described] == [
-        ("session_idle_days", 7, True), ("session_max_days", 30, True)]
+    assert [(s["key"], s["value"], s["nullable"], s["unit"], s["group"]) for s in described] == [
+        ("session_idle_days", 7, True, "days", "Sign-in"), ("session_max_days", 30, True, "days", "Sign-in"),
+        ("file_max_mb", 25, False, "MiB", "Files"), ("person_files_max_mb", 1000, False, "MiB", "Files")]
     assert all(s["label"] and s["help"] for s in described)
     for wrong in ({"nope": 1}, {"session_idle_days": 0}, {"session_idle_days": 3651}, {"session_idle_days": True},
-                  {"session_idle_days": "7"}, {"session_max_days": 1.5}):
+                  {"session_idle_days": "7"}, {"session_max_days": 1.5}, {"file_max_mb": None},
+                  {"file_max_mb": 101}, {"person_files_max_mb": 0}):
         response = change(client, **wrong)
         assert response.status_code == 422 and response.json()["error"]["code"] == "invalid_setting", wrong
-    assert settings(client) == {"session_idle_days": 7, "session_max_days": 30}  # nothing half-saved
+    files = {"file_max_mb": 25, "person_files_max_mb": 1000}
+    assert settings(client) == {"session_idle_days": 7, "session_max_days": 30, **files}  # nothing half-saved
     assert change(client, session_idle_days=None, session_max_days=365).status_code == 200
-    assert settings(client) == {"session_idle_days": None, "session_max_days": 365}
+    assert settings(client) == {"session_idle_days": None, "session_max_days": 365, **files}
 
 
 def test_settings_survive_a_restart(config):

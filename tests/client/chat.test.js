@@ -19,6 +19,14 @@ test("saved items become messages; tool results sit with their call", () => {
   assert.deepEqual(state.messages[1].tools[0].result, { content: "nope", isError: true });
 });
 
+test("a message keeps the files it attached, saved or still being sent", () => {
+  const files = [{ id: "file_1", name: "a.csv", size: 3 }];
+  const state = fromSnapshot(snapshot({ items: [{ ...user("i1", "see"), files }, user("i2", "plain")] }));
+  assert.deepEqual(state.messages.map((m) => m.files), [files, []]);
+  addPendingMessage(state, "more", files);
+  assert.deepEqual(state.messages.at(-1).files, files);
+});
+
 test("a running reply is followed; a finished one is not", () => {
   assert.equal(fromSnapshot(snapshot({ active_run: { id: "run_1" } })).run.id, "run_1");
   assert.equal(fromSnapshot(snapshot()).run, null);

@@ -75,7 +75,7 @@ jobs:
   browser:
     name: Browser tests
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 40
     env:
       SNILD_ENABLE_EMULATOR: "1"
       SNILD_TEST_INSTANCE: "1"  # a disposable snild: the tests add accounts
@@ -88,18 +88,23 @@ jobs:
           node-version: "22"
       - name: Build and start snild with the test model
         run: docker compose up -d --build --wait
+      # A test that hangs fails after three minutes, by name, and every failed test becomes an annotation of the run.
       - name: Chrome (non-loopback http origin, not a secure context)
+        shell: bash
         run: |
           export SNILD_URL="http://$(hostname -I | awk '{print $1}'):8080"
           export SNILD_CHROME="$(command -v google-chrome)"
-          node --test --test-concurrency=1 "tests/browser/*.test.js"
+          node --test --test-reporter=tap --test-concurrency=1 --test-timeout=180000 "tests/browser/*.test.js" | tee "$RUNNER_TEMP/chrome.tap" \
+            || { sed -nE 's/^ *not ok [0-9]+ - (.*)/::error title=Chrome::\1/p' "$RUNNER_TEMP/chrome.tap"; exit 1; }
       - name: Edge (loopback http origin), on a fresh instance so it also tests setup
+        shell: bash
         run: |
           docker compose down -v
           docker compose up -d --wait
           export SNILD_URL="http://127.0.0.1:8080"
           export SNILD_CHROME="$(command -v microsoft-edge)"
-          node --test --test-concurrency=1 "tests/browser/*.test.js"
+          node --test --test-reporter=tap --test-concurrency=1 --test-timeout=180000 "tests/browser/*.test.js" | tee "$RUNNER_TEMP/edge.tap" \
+            || { sed -nE 's/^ *not ok [0-9]+ - (.*)/::error title=Edge::\1/p' "$RUNNER_TEMP/edge.tap"; exit 1; }
       - name: Show the log if anything failed
         if: failure()
         run: docker compose logs | sed -E 's/(setup=|setup code )[A-Za-z0-9_-]+/\1<redacted>/g'

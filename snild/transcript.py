@@ -1,7 +1,7 @@
 """Transcript items: their shapes, what the transcript is waiting for, and the public view the browser gets.
 
 Stored item shapes (JSON):
-    user         {id, type: "user", text}
+    user         {id, type: "user", text, files?: [{id, name, size}]}   files: what it attached, as it was then
     assistant    {id, type: "assistant", model_id, text, thinking, tool_calls: [{id, name, input, arguments}],
                   status: "complete" | "cancelled", provider_state: {adapter, data} | null}
     tool_result  {id, type: "tool_result", call_id, content, is_error}
@@ -94,8 +94,12 @@ def close_skipped_calls(items: list[dict[str, Any]], new: list[dict[str, Any]]) 
     return [stored_tool_result(call_id, NOT_RUN, True) for call_id in pending_call_ids(items)] + new
 
 
-def stored_user_item(text: str) -> dict[str, Any]:
-    return {"id": new_id("item"), "type": "user", "text": text}
+def stored_user_item(text: str, file_ids: list[str] | None = None) -> dict[str, Any]:
+    """A user item; its file_ids become its frozen list of files when it is saved (Store.start_run)."""
+    item: dict[str, Any] = {"id": new_id("item"), "type": "user", "text": text}
+    if file_ids:
+        item["file_ids"] = list(file_ids)
+    return item
 
 
 def stored_tool_result(call_id: str, content: str, is_error: bool) -> dict[str, Any]:

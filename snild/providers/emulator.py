@@ -32,6 +32,7 @@ from .base import (
     ToolCallStart,
     Usage,
 )
+from .base import user_text as user_text_for_model  # the line about attached files, as a model reads it
 
 SCENARIO_DIR = Path(__file__).resolve().parent.parent / "scenarios"
 MARKER = re.compile(r"\[scenario:([a-z0-9-]+)\]")
@@ -76,7 +77,8 @@ class EmulatorProvider:
             return
         scenario = self._choose(user_text)
         if scenario is None:
-            async for event in self._play({"text": f"You said: {user_text}"}, "echo", 0, request):
+            said = user_text_for_model(request.transcript[user_index]) if user_index >= 0 else user_text
+            async for event in self._play({"text": f"You said: {said}"}, "echo", 0, request):
                 yield event
             return
         step_index = sum(1 for it in request.transcript[user_index + 1:] if it["type"] == "assistant")

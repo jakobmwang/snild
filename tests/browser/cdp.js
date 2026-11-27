@@ -22,6 +22,8 @@ function findChrome() {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const SEND_TIMEOUT_MS = 90_000;
+
 export class Browser {
   static async launch() {
     const profile = mkdtempSync(join(tmpdir(), "snild-chrome-"));
@@ -87,7 +89,18 @@ export class Browser {
   send(method, params = {}, sessionId = undefined) {
     const id = this.nextId++;
     this.socket.send(JSON.stringify({ id, method, params, sessionId }));
-    return new Promise((resolve, reject) => this.pending.set(id, { resolve, reject, method }));
+    return new Promise((resolve, reject) => {
+      // A browser that never answers fails the test that asked, by name, instead of stalling the whole run.
+      const timer = setTimeout(() => {
+        if (this.pending.delete(id)) reject(new Error(`the browser did not answer ${method} within ${SEND_TIMEOUT_MS / 1000} s`));
+      }, SEND_TIMEOUT_MS);
+      timer.unref?.();
+      const done = (/** @type {(value: any) => void} */ settle) => (/** @type {any} */ value) => {
+        clearTimeout(timer);
+        settle(value);
+      };
+      this.pending.set(id, { resolve: done(resolve), reject: done(reject), method });
+    });
   }
 
   /** A page in a fresh browser context: its own cookies and storage, like another person's browser. */

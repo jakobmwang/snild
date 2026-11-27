@@ -18,7 +18,7 @@ const MAX_HIDDEN_FILES = 20;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /**
- * @typedef {{file: string, elements: number, source: string}} HiddenFile
+ * @typedef {{file: string, elements: number, source: string, id?: string}} HiddenFile   id: a chat file's (not a demo's)
  * @typedef {{run_js: number, status: "ok" | "error", seconds: number, error?: string, note?: string,
  *            value?: string, console?: string, svg?: string, hidden?: HiddenFile[]}} RunJsResult
  */
@@ -38,7 +38,8 @@ export function resultText(outcome, limit) {
   if (outcome.svgChars) notes.push(tooLarge(outcome.svgChars));
   // A few short names, from this page, never cut: what lets the chat offer the person the hidden text.
   const hidden = outcome.hidden?.slice(0, MAX_HIDDEN_FILES)
-    .map(({ file, elements, source }) => ({ file: file.slice(0, 500), elements, source: source.slice(0, 100) }));
+    .map(({ file, elements, source, id }) => ({ file: file.slice(0, 500), elements, source: source.slice(0, 100),
+      ...(id ? { id: id.slice(0, 100) } : {}) }));
   let svg = outcome.svg ? withNamespace(clean(outcome.svg) ?? "") : undefined;
 
   /** The result with every text cut to at most `cap` characters (from its start), and notes on what was cut. */
@@ -113,7 +114,7 @@ export function parseResult(content) {
     if (result.hidden !== undefined) { // kept only if every entry is what this page writes
       const valid = Array.isArray(result.hidden) && result.hidden.every((entry) => entry && typeof entry.file === "string"
         && Number.isInteger(entry.elements) && entry.elements > 0 && typeof entry.source === "string"
-        && /^sha256:[0-9a-f]{64}$/.test(entry.source));
+        && /^sha256:[0-9a-f]{64}$/.test(entry.source) && (entry.id === undefined || typeof entry.id === "string"));
       if (!valid) delete result.hidden;
     }
     return result;

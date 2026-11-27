@@ -4,8 +4,9 @@
 // read. Before any query runs, DuckDB loads its Excel extension from snild, then allows those names only, turns
 // off every other file and network access, and locks its configuration so SQL cannot turn it back on.
 //
-// A job's files arrive as bytes with its first query and are the only files registered while it runs. Each
-// job gets a fresh connection; a job that left tables, views or other objects behind is reported, and the page
+// A job's files arrive as bytes with the first query that names them, and only they are registered while it
+// runs (the names the frame allows are the page's choice; it replaces the frame when they change). Each job
+// gets a fresh connection; a job that left tables, views or other objects behind is reported, and the page
 // replaces this frame, so nothing one job made is seen by the next.
 
 const MAX_ROWS = 100_000;
@@ -18,6 +19,7 @@ let db = null;
 let conn = null;
 let job = null;
 let files = [];
+let broken = false; // a registration failed halfway: what DuckDB holds is not known, so the page replaces it
 
 async function open(names) {
   const duckdb = await import(vendor("duckdb/duckdb-browser.mjs"));
@@ -51,14 +53,10 @@ function plain(value) {
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, plain(item)]));
 }
 
-/** A call's first query: its files, and a fresh connection. It counts as begun only once both are there. */
-async function begin(id, given) {
+/** A call's first query: a fresh connection. It counts as begun only once it is there. */
+async function begin(id) {
   await finish();
   try {
-    for (const [name, bytes] of Object.entries(given || {})) {
-      files.push(name);
-      await db.registerFileBuffer(name, new Uint8Array(bytes));
-    }
     conn = await db.connect();
     job = id;
   } catch (error) {
@@ -67,11 +65,27 @@ async function begin(id, given) {
   }
 }
 
-/** Close the job's connection and drop its files; true if it left nothing behind in the database. */
+/** Files a query brings that the job does not have yet; a name counts as had only once it is registered. */
+async function add(given) {
+  for (const [name, bytes] of Object.entries(given || {})) {
+    if (files.includes(name)) continue;
+    try {
+      await db.registerFileBuffer(name, new Uint8Array(bytes));
+    } catch (error) {
+      broken = true;
+      throw error;
+    }
+    files.push(name);
+  }
+}
+
+/** Close the job's connection and drop its files; true if it left nothing behind (a file that could not be
+ * dropped counts: the page then replaces this frame, so no job's bytes are seen by the next). */
 async function finish() {
   if (conn) await conn.close();
   conn = null;
-  for (const name of files) await db.dropFile(name).catch(() => {});
+  let dropped = true;
+  for (const name of files) await db.dropFile(name).catch(() => { dropped = false; });
   files = [];
   job = null;
   const check = await db.connect();
@@ -84,7 +98,7 @@ async function finish() {
       + (SELECT count(*) FROM duckdb_functions() WHERE NOT internal)
       + (SELECT count(*) FROM duckdb_schemas() WHERE NOT internal AND schema_name <> 'main')
       + (SELECT count(*) FROM duckdb_databases() WHERE NOT internal AND database_name <> 'memory') AS n`);
-    return Number(left.toArray()[0].n) === 0;
+    return dropped && !broken && Number(left.toArray()[0].n) === 0;
   } finally {
     await check.close();
   }
@@ -135,7 +149,8 @@ async function query(text) {
 async function handle(data) {
   if (data.type === "sql") {
     try {
-      if (data.job !== job) await begin(data.job, data.files);
+      if (data.job !== job) await begin(data.job);
+      await add(data.files);
       port.postMessage({ type: "reply", n: data.n, rows: await query(String(data.query)) });
     } catch (error) {
       port.postMessage({ type: "reply", n: data.n, error: error instanceof Error ? error.message : String(error) });

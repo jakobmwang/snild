@@ -24,6 +24,7 @@ from starlette.types import Scope
 from . import api
 from .auth import Accounts, Hasher
 from .config import Config
+from .files import Files
 from .providers import build_providers
 from .providers.base import Provider
 from .runs import RunManager
@@ -104,6 +105,10 @@ def create_app(config: Config, providers: dict[str, Provider] | None = None, web
         interrupted = await store.interrupt_runs()
         if interrupted:
             log.warning("%d reply(ies) were cut off by the last shutdown", interrupted)
+        files = Files(config.data_dir / "files")
+        swept = await asyncio.to_thread(files.prepare, await store.file_ids())  # before anything is served
+        if swept:
+            log.warning("removed %d unfinished or orphaned file(s) left by the last shutdown", swept)
         accounts = Accounts(store, config, hasher, settings=Settings(await store.load_settings()))
         await accounts.hasher.warm()
         active_providers = providers if providers is not None else build_providers(config)
@@ -111,6 +116,7 @@ def create_app(config: Config, providers: dict[str, Provider] | None = None, web
         runs = RunManager(store, config, active_providers, tools or ToolContract(), SYSTEM_PROMPT.read_text("utf-8"),
                           titles)
         app.state.config, app.state.store, app.state.runs, app.state.accounts = config, store, runs, accounts
+        app.state.files = files
         await titles.resume_pending()
         if await store.setup_open():
             code = await accounts.issue_setup_code()
@@ -124,6 +130,7 @@ def create_app(config: Config, providers: dict[str, Provider] | None = None, web
             await asyncio.gather(housekeeping, return_exceptions=True)
             await runs.shutdown()
             await titles.shutdown()
+            await files.shutdown()  # files being saved finish before the store closes
             if hasher is None:  # a hasher the caller passed in is the caller's to close
                 accounts.hasher.close()
             await store.close()

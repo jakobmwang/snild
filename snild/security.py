@@ -44,11 +44,17 @@ def frame_csp(kind: str, base: str, hashes: list[str]) -> str:
     The code frame names no address at all: only its inline script and blob: workers run, and nothing may be
     fetched, so the model's code (in a worker, which inherits this policy) cannot load or send anything, not even
     to snild. The DuckDB frame runs no model code: it may load DuckDB's files from snild (`base` is the absolute
-    URL of the versioned assets, since the frame's opaque origin makes 'self' match nothing) and nothing else."""
+    URL of the versioned assets, since the frame's opaque origin makes 'self' match nothing) and nothing else.
+    The PDF frame runs no model code either: it may load digpdf's four files and nothing else, and it alone may
+    evaluate strings as code, because digpdf starts its PDF engine with new Function."""
     inline = " ".join(f"'sha256-{digest}'" for digest in hashes)
     if kind == "code":
         script = f"{inline} blob:"
         connect = "'none'"
+    elif kind == "pdf":
+        digpdf = f"{base}/vendor/digpdf"
+        script = f"{digpdf}/digpdf.mjs {inline} blob: 'unsafe-eval'"
+        connect = f"{digpdf}/digpdf.wasm {digpdf}/pdfium.wasm {digpdf}/pdfium.js"
     else:
         script = (f"{base}/frames/duckdb-boot.js {base}/frames/arrow.js {base}/vendor/duckdb/ {base}/vendor/arrow/"
                   f" {inline} 'wasm-unsafe-eval'")

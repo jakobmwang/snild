@@ -88,3 +88,14 @@ test("an SVG that has its namespace keeps it", () => {
   assert.equal(withNamespace(same), same);
   assert.equal(withNamespace("<div><svg></svg></div>"), "<div><svg></svg></div>");
 });
+
+test("the PDFs whose hidden text was kept from the code are named whole, read back, and dropped if malformed", () => {
+  const hidden = [{ file: "demo/report.pdf", elements: 1, source: `sha256:${"a".repeat(64)}` }];
+  const { content } = resultText({ status: "ok", seconds: 1, value: "x".repeat(60_000), hidden }, 50_000);
+  assert.ok(content.length <= 50_000);
+  assert.deepEqual(parseResult(content)?.hidden, hidden);
+  for (const wrong of [[{ file: 3, elements: 1, source: "" }], [{ file: "a.pdf", elements: 0, source: "" }], "a.pdf"]) {
+    const read = parseResult(JSON.stringify({ run_js: 1, status: "ok", seconds: 1, hidden: wrong }));
+    assert.ok(read && read.hidden === undefined, JSON.stringify(wrong));
+  }
+});

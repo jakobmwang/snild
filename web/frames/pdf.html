@@ -1,0 +1,136 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>snild PDF reader</title>
+<script>
+// The PDF frame: digpdf for the pdf.html() of run_js. It sits in <iframe sandbox="allow-scripts"> with no
+// origin of its own, and its policy lets it load digpdf's own files from snild and nothing else. It runs no
+// model code. digpdf starts its PDF engine with new Function and compiles WebAssembly, so this frame, and only
+// this one, may evaluate code ('unsafe-eval'); the frame that runs the model's code may not.
+//
+// The page sends a PDF's bytes; a worker here reads them with digpdf (loaded on the first read and kept warm:
+// digpdf keeps nothing from one read to the next) while this thread answers the page's pings. Before the HTML
+// leaves the frame, the text of hidden elements is taken out unless it is the OCR text of a scan: text a
+// person cannot see on the page is the classic way to hide instructions for a model. The elements stay, with
+// data-hidden and data-bbox, so the model can tell that something was hidden, and where; the page learns how
+// many there were. Only when the page asks for it, so the person can look, does the frame answer with the hidden
+// text itself instead of the HTML; the page never hands that to code.
+"use strict";
+
+(() => {
+  const MAX_CHARS = 1_000_000; // the HTML and the notes of one PDF together: the ceiling on what crosses back
+
+  const DIGPDF = new URL("../vendor/digpdf/digpdf.mjs", location.href).href;
+  const WORKER = `"use strict";
+let digpdf = null;
+onmessage = async ({ data }) => {
+  let reader;
+  try {
+    digpdf ??= import(${JSON.stringify(DIGPDF)}).then((module) => module.load());
+    reader = await digpdf;
+  } catch (error) {
+    // Not retried here: a browser may remember a failed import. The frame replaces this worker instead.
+    postMessage({ error: "digpdf could not start: " + (error instanceof Error ? error.message : String(error)), broken: true });
+    return;
+  }
+  try {
+    const { html, notes } = await reader.html(new Uint8Array(data.bytes), data.name);
+    const size = html.length + notes.reduce((sum, note) => sum + note.length, 0);
+    if (size > ${MAX_CHARS}) throw new Error(data.name + " is too large as HTML (" + size + " characters).");
+    postMessage({ html, notes });
+  } catch (error) {
+    postMessage({ error: error instanceof Error ? error.message : String(error) });
+  }
+};`;
+
+  let port = null;
+  let worker = null;
+
+  /** One read in the worker; the frame sends the next only after this one is answered. */
+  function read(name, bytes) {
+    let url = null;
+    if (!worker) {
+      url = URL.createObjectURL(new Blob([WORKER], { type: "text/javascript" }));
+      worker = new Worker(url);
+    }
+    const reading = worker;
+    const discard = () => {
+      reading.terminate();
+      if (worker === reading) worker = null;
+    };
+    return new Promise((resolve) => {
+      reading.onmessage = ({ data }) => {
+        if (data.broken) discard(); // the next read starts a fresh worker
+        resolve(data);
+      };
+      reading.onerror = (event) => {
+        event.preventDefault();
+        discard();
+        resolve({ error: "The PDF reader stopped unexpectedly." });
+      };
+      reading.postMessage({ name, bytes }, [bytes]);
+    }).finally(() => url && URL.revokeObjectURL(url)); // the worker has its script by now
+  }
+
+  /** The HTML without the text of hidden elements that is not OCR. */
+  function cleaned(html) {
+    const page = new DOMParser().parseFromString(html, "text/html"); // inert: no script runs, nothing loads
+    const hidden = page.querySelectorAll("[data-hidden]:not([data-ocr])");
+    for (const element of hidden) element.removeAttribute("data-text");
+    return { html: "<!DOCTYPE html>\n" + page.documentElement.outerHTML, hidden: hidden.length, source: sourceOf(page) };
+  }
+
+  /** The PDF's digest, as digpdf records it: which file this was, whatever it is called. */
+  function sourceOf(page) {
+    return page.querySelector("meta[name=source]")?.getAttribute("content") ?? "";
+  }
+
+  /** The hidden elements that are not OCR, with their text: where they are, how they are hidden, what they say. */
+  function hiddenText(html) {
+    const page = new DOMParser().parseFromString(html, "text/html");
+    const hidden = [...page.querySelectorAll("[data-hidden]:not([data-ocr])")].map((element) => ({
+      page: Number(element.closest("[data-page]")?.getAttribute("data-page")) || null,
+      kind: element.getAttribute("data-hidden") ?? "",
+      bbox: element.getAttribute("data-bbox") ?? "",
+      text: element.getAttribute("data-text") ?? "",
+    }));
+    return { hidden, source: sourceOf(page) };
+  }
+
+  async function handle(data) {
+    if (data.type !== "pdf" || typeof data.name !== "string" || !(data.bytes instanceof ArrayBuffer)) return;
+    let reply;
+    try {
+      const got = await read(data.name, data.bytes);
+      if (typeof got.error === "string") throw new Error(got.error);
+      if (data.hidden === true) {
+        const { hidden, source } = hiddenText(String(got.html));
+        const size = JSON.stringify(hidden).length;
+        if (size > MAX_CHARS) throw new Error(`The hidden text of ${data.name} is too large (${size} characters).`);
+        port.postMessage({ type: "reply", n: data.n, hidden, source });
+        return;
+      }
+      const notes = Array.isArray(got.notes) ? got.notes.map(String) : [];
+      const { html, hidden, source } = cleaned(String(got.html));
+      // Again after cleaning: serializing can add a little (a <tbody>, say).
+      const size = html.length + notes.reduce((sum, note) => sum + note.length, 0);
+      if (size > MAX_CHARS) throw new Error(`${data.name} is too large as HTML (${size} characters).`);
+      reply = { html, notes, hidden, source };
+    } catch (error) {
+      reply = { error: error instanceof Error ? error.message : String(error) };
+    }
+    port.postMessage({ type: "reply", n: data.n, ...reply });
+  }
+
+  addEventListener("message", (event) => {
+    // Only the snild page that made this frame, and only once.
+    if (port || event.source !== parent || event.data?.type !== "hello" || !event.ports[0]) return;
+    port = event.ports[0];
+    let queue = Promise.resolve();
+    port.onmessage = ({ data }) => {
+      if (data?.type === "ping") port.postMessage({ type: "pong" }); // answered at once, even while a PDF is read
+      else queue = queue.then(() => handle(data)).catch(() => {});
+    };
+    port.postMessage({ type: "ready" });
+  });
+})();
+</script>

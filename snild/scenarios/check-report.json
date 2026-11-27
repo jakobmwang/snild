@@ -1,0 +1,25 @@
+{
+  "name": "check-report",
+  "match": "\\bcheck the demo sales report\\b",
+  "description": "Real code over the demo PDF: its table of sales by region, read with digpdf and DOMParser, checked against the Excel data with SQL. The answer names the misprint and the hidden line only if the browser really found them.",
+  "title": "Checking the sales report",
+  "steps": [
+    {
+      "text": "I'll read the PDF report, take its table of sales by region, and check each figure and the total against the Excel data.",
+      "tool_calls": [
+        {
+          "name": "run_js",
+          "input": {
+            "code": "const { html } = await pdf.html(\"demo/report.pdf\");\nconst page = new DOMParser().parseFromString(html, \"text/html\");\nconst number = (text) => Number(text.replace(/[^0-9.-]/g, \"\"));\nconst rows = [...page.querySelector(\"table\").querySelectorAll(\"tr\")].slice(1)\n  .map((tr) => [...tr.querySelectorAll(\"td, th\")].map((cell) => cell.textContent.trim()));\nconst report = Object.fromEntries(rows.filter(([region]) => region !== \"Total\").map(([region, sales]) => [region, number(sales)]));\nconst reportTotal = number(rows.find(([region]) => region === \"Total\")[1]);\n\nconst data = await sql(\"SELECT region, sum(amount) AS sales FROM read_xlsx('demo/sales.xlsx') GROUP BY region\");\nconst dataTotal = d3.sum(data, (d) => d.sales);\nconst differences = data.filter((d) => report[d.region] !== d.sales)\n  .map((d) => `${d.region}: report ${report[d.region]}, data ${d.sales}`);\nconst hidden = [...page.querySelectorAll(\"[data-hidden]\")].map((element) => element.getAttribute(\"data-hidden\"));\nreturn `${differences.join(\"; \") || \"no differences\"}; report total ${reportTotal}, data total ${dataTotal}; hidden elements: ${hidden.length} (${hidden.join(\", \")})`;"
+          }
+        }
+      ]
+    },
+    {
+      "expect_tool_result": {
+        "contains": "North: report 545915, data 545951; report total 2245224, data total 2245224; hidden elements: 1 (samecolour)"
+      },
+      "text": "The report has one wrong figure:\n\n| Region | Report | Data |\n|---|---:|---:|\n| North | 545,915 | 545,951 |\n\nTwo digits are swapped. The other regions match, and the report's total, **2,245,224**, is right, so its rows add up to 36 less than its own total.\n\nThe PDF also has a line of hidden text, in the same colour as the page, which snild leaves out of what I read."
+    }
+  ]
+}

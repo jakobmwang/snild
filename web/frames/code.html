@@ -9,7 +9,8 @@
 //
 // Each run gets a fresh classic worker made from a blob (it inherits the frame's policy): d3 and a small
 // virtual page (linkedom) as `document`, the model's code wrapped in an async function, and console captured.
-// The worker reaches files and SQL only through fs and sql(), which ask the page over this frame's one port.
+// The worker reaches files, SQL and PDFs only through fs, sql() and pdf, which ask the page over this frame's one
+// port.
 // The page enforces the time limit from outside: it asks this frame to cancel a run (the worker is terminated)
 // and replaces the frame if it stops answering. Everything sent back is bounded first.
 "use strict";
@@ -23,7 +24,7 @@
   const MAX_ASK = 1_000_000;
 
   // Runs in the worker, before the model's code (after d3, which the page sent). Its names start with __ so they
-  // stay out of the code's way; fs, sql, d3, document and window are what the code is promised.
+  // stay out of the code's way; fs, sql, pdf, d3, document, window and DOMParser are what the code is promised.
   const PRELUDE = `const __show = (value, indent) => {
   if (typeof value === "string") return value;
   if (value instanceof Error) return value.stack || String(value);
@@ -66,6 +67,7 @@ for (const level of ["log", "info", "debug", "warn", "error", "table"]) {
 }
 const fs = Object.freeze({ readdir: () => __ask("readdir", {}), readFile: (name) => __ask("readFile", { name: String(name) }) });
 const sql = (query) => __ask("sql", { query: String(query) });
+const pdf = Object.freeze({ html: (name) => __ask("pdf", { name: String(name) }) });
 const __encode = (value) => {
   if (value && typeof value.node === "function" && value.node() && value.node().nodeType) value = value.node();
   if (value && typeof value === "object" && typeof value.nodeType === "number") {
@@ -76,10 +78,11 @@ const __encode = (value) => {
   return value === undefined ? {} : { value: __show(value, 2) };
 };
 const __main = async () => {
-  const { parseHTML } = await import(URL.createObjectURL(new Blob([__linkedom], { type: "text/javascript" })));
+  const { parseHTML, DOMParser } = await import(URL.createObjectURL(new Blob([__linkedom], { type: "text/javascript" })));
   const page = parseHTML("<!doctype html><html><head></head><body></body></html>");
   self.document = page.document;
   self.window = page.window;
+  self.DOMParser = DOMParser;
   return (async () => {`;
   const EPILOGUE = `})();
 };
@@ -138,7 +141,7 @@ __main().then((value) => postMessage({ type: "done", ...__encode(value) }),
   }
 
   // What each request may carry: these string fields and nothing else.
-  const FIELDS = { readdir: [], readFile: ["name"], sql: ["query"] };
+  const FIELDS = { readdir: [], readFile: ["name"], sql: ["query"], pdf: ["name"] };
 
   /** Pass a request on to the page as a new message holding only its expected, bounded strings. */
   function ask(run, data) {

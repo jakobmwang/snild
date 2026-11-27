@@ -340,6 +340,16 @@
     overflow-wrap: anywhere; max-height: 18rem; overflow: auto;
   }
   .tool-error-text pre { color: var(--error-text); background: var(--error-bg); }
+  .hidden-text {
+    margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3);
+    border: 1px dashed var(--line-strong); border-radius: var(--radius); font-size: 0.875rem;
+  }
+  .hidden-head { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+  .hidden-head > span { flex: 1; min-width: 12rem; color: var(--muted); }
+  .hidden-actions { display: flex; gap: var(--space-2); margin-left: auto; flex: none; }
+  .hidden-item { margin-top: var(--space-2); }
+  .hidden-item pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+  .hidden-body .form-error { margin: var(--space-2) 0 0; }
   /* A chart the code returned: an SVG drawn for paper (dark text on white), so it sits on white in both themes. */
   .tool-chart {
     display: block; max-width: 100%; height: auto; margin: 0 0 var(--space-4); padding: var(--space-3);

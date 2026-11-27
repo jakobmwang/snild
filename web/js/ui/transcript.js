@@ -9,7 +9,9 @@
  *
  * A tool call is a card that follows the call's real life in this browser: being written, waiting, running,
  * done (with its time), failed or stopped. Its code and output are folded; a chart it returned is shown below
- * the fold as an image (an SVG in an <img> runs no script and loads nothing), live and after a reload.
+ * the fold as an image (an SVG in an <img> runs no script and loads nothing), live and after a reload. A PDF it
+ * read whose hidden text was kept from the model gets a line of its own: the person can look at that text
+ * (read again by this page, shown as plain text) and add it to their message; nothing more happens by itself.
  */
 
 import { parseResult } from "../core/runjs.js";
@@ -26,11 +28,27 @@ import { text } from "./strings.js";
 
 const AT_BOTTOM_PX = 48;
 
+/**
+ * What the person can do with hidden text: read it (never handed to code), and add a quote of it to their
+ * message, which returns why it could not, or null.
+ * @typedef {{readHidden: (file: string, source: string, signal: AbortSignal) => Promise<HiddenText[]>,
+ *            addToMessage: (quote: string) => string | null}} HiddenActions
+ * @typedef {import("../runtime/sandbox.js").HiddenText} HiddenText
+ * @typedef {{items?: HiddenText[], open?: boolean, problem?: string, reading?: boolean}} Revealed
+ * @typedef {{actions: HiddenActions | null, revealed: Map<string, Revealed>, leave: AbortController,
+ *            root: HTMLElement}} HiddenState
+ */
+
 export class TranscriptView {
-  /** @param {HTMLElement} scroller the element that scrolls (the transcript's container) */
-  constructor(scroller) {
+  /**
+   * @param {HTMLElement} scroller the element that scrolls (the transcript's container)
+   * @param {HiddenActions} [actions]
+   */
+  constructor(scroller, actions) {
     this.scroller = scroller;
     this.element = el("div", { class: "transcript" });
+    /** Hidden text the person looked at, by its line (see hiddenLine); a new chat starts empty. @type {HiddenState} */
+    this.hidden = { actions: actions ?? null, revealed: new Map(), leave: new AbortController(), root: this.element };
     /** @type {Map<string, {node: HTMLElement, key: string}>} */
     this.saved = new Map();
     /** @type {HTMLElement | null} */
@@ -83,6 +101,9 @@ export class TranscriptView {
   /** Another chat is opened: what was unfolded or timed in this one does not carry over. */
   forget() {
     this.opened.clear();
+    this.hidden.revealed.clear();
+    this.hidden.leave.abort(); // a read still under way for the chat that was open is called off
+    this.hidden.leave = new AbortController();
     this.thought.clear();
     this.thinkingSince = 0;
   }
@@ -109,7 +130,7 @@ export class TranscriptView {
     const nodes = state.messages.map((message, index) => {
       const key = keyOf(message);
       const cached = message.id ? this.saved.get(message.id) : undefined;
-      const node = cached && cached.key === key ? cached.node : messageNode(message, index, this.opened, this.thought);
+      const node = cached && cached.key === key ? cached.node : messageNode(message, index, this.opened, this.thought, this.hidden);
       if (message.id) keep.set(message.id, { node, key });
       return node;
     });
@@ -157,7 +178,7 @@ export class TranscriptView {
     if (!this.liveNode || key === this.liveKey) return;
     this.#time(live);
     const started = performance.now();
-    patch(this.liveNode, assistantParts(live, this.liveIndex, this.opened, this.thought));
+    patch(this.liveNode, assistantParts(live, this.liveIndex, this.opened, this.thought, this.hidden));
     this.liveKey = key;
     this.lastDraw = performance.now();
     this.drawCost = this.lastDraw - started;
@@ -235,10 +256,14 @@ function patch(host, parts) {
   }
 }
 
-/** @param {Message} message What decides whether a drawn message is still right. */
+/**
+ * @param {Message} message What decides whether a drawn message is still right. A result made here and one
+ * the server saved count as different (another tab may have saved its own), so the saved one is drawn anew.
+ */
 function keyOf(message) {
   if (message.kind === "user") return `u${message.text.length}`;
-  const tools = message.tools.map((t) => `${t.id}:${t.preview.length}:${t.input ? 1 : 0}:${t.result ? 1 : 0}:${t.phase ?? ""}`).join(",");
+  const result = (/** @type {ToolView} */ t) => (t.result ? (t.unsaved ? "here" : "saved") : "");
+  const tools = message.tools.map((t) => `${t.id}:${t.preview.length}:${t.input ? 1 : 0}:${result(t)}:${t.phase ?? ""}`).join(",");
   return `a${message.status}:${message.text.length}:${message.thinking.length}:${tools}`;
 }
 
@@ -247,14 +272,15 @@ function keyOf(message) {
  * @param {number} index its place in the transcript
  * @param {Set<string>} opened
  * @param {Map<number, number>} thought
+ * @param {HiddenState} hidden
  */
-function messageNode(message, index, opened, thought) {
+function messageNode(message, index, opened, thought, hidden) {
   if (message.kind === "user") {
     return el("article", { class: "message message-user" },
       el("h2", { class: "visually-hidden" }, text.you),
       el("div", { class: "bubble" }, message.text));
   }
-  return el("article", { class: "message message-assistant" }, ...assistantParts(message, index, opened, thought));
+  return el("article", { class: "message message-assistant" }, ...assistantParts(message, index, opened, thought, hidden));
 }
 
 /**
@@ -274,7 +300,7 @@ function foldKey(kind, what) {
  * @param {Map<number, number>} thought seconds of reasoning watched live, by index
  * @returns {HTMLElement[]}
  */
-function assistantParts(message, index, opened, thought) {
+function assistantParts(message, index, opened, thought, hidden) {
   const writing = message.status === "writing";
   const parts = [el("h2", { class: "visually-hidden", "data-slot": "title" }, text.assistant)];
   if (message.thinking) {
@@ -288,7 +314,7 @@ function assistantParts(message, index, opened, thought) {
       el("div", { class: "thinking-text" }, message.thinking)));
   }
   if (message.text) parts.push(el("div", { class: "prose", "data-slot": "prose" }, renderMarkdown(message.text)));
-  for (const tool of message.tools) parts.push(...toolParts(tool, index, writing, opened));
+  for (const tool of message.tools) parts.push(...toolParts(tool, index, writing, opened, hidden));
   // The answer can be copied; a step that only says what it will do next (its tools follow) is not an answer.
   if (message.text && !writing && !message.tools.length && globalThis.navigator?.clipboard?.writeText) {
     parts.push(copyButton(message.text));
@@ -318,14 +344,103 @@ function copyButton(source) {
 }
 
 /**
- * A tool call's card, and below it the chart the call returned (if any).
+ * A tool call's card, below it the chart the call returned (if any), and a line for each PDF it read whose
+ * hidden text was kept from the model.
  * @param {ToolView} tool
  * @param {number} index the reply's place in the transcript (a call id may come again in a later reply)
  * @param {boolean} writing whether the reply that asked for it is still being written
  * @param {Set<string>} opened
+ * @param {HiddenState} hidden
  * @returns {HTMLElement[]}
  */
-function toolParts(tool, index, writing, opened) {
+function toolParts(tool, index, writing, opened, hidden) {
+  const parts = cardParts(tool, index, writing, opened);
+  const stored = tool.result ? parseResult(tool.result.content) : null;
+  if (stored?.hidden && hidden.actions) {
+    for (const entry of stored.hidden) {
+      parts.push(hiddenLine(entry, `${index}:${tool.id}:${entry.file}:${entry.source}`, hidden));
+    }
+  }
+  return parts;
+}
+
+/**
+ * The line for one PDF whose hidden text was kept from the model: Show reads it (in this page, for the person)
+ * and shows it as plain text; Add to message quotes it at the end of the person's message, for them to send.
+ * @param {import("../core/runjs.js").HiddenFile} entry
+ * @param {string} key
+ * @param {HiddenState} hidden
+ */
+function hiddenLine(entry, key, hidden) {
+  const actions = /** @type {HiddenActions} */ (hidden.actions);
+  const show = /** @type {HTMLButtonElement} */ (el("button", { type: "button", class: "button button-small" }));
+  const add = el("button", { type: "button", class: "button button-small button-quiet" }, text.addHidden);
+  const body = el("div", { class: "hidden-body" });
+  const draw = () => {
+    const now = hidden.revealed.get(key);
+    const open = Boolean(now?.open && now.items);
+    show.textContent = now?.reading ? text.readingHidden : open ? text.hideHidden : text.showHidden;
+    show.disabled = Boolean(now?.reading);
+    show.setAttribute("aria-expanded", String(open));
+    add.hidden = !open; // only what the person has seen can be added
+    body.replaceChildren(
+      ...(open ? /** @type {HiddenText[]} */ (now?.items).map((item) => el("div", { class: "hidden-item" },
+        el("div", { class: "tool-label" }, text.hiddenWhere(item)), el("pre", {}, item.text))) : []),
+      ...(now?.problem ? [el("p", { class: "form-error", role: "alert" }, now.problem)] : []));
+  };
+  show.addEventListener("click", async () => {
+    const now = hidden.revealed.get(key);
+    if (now?.items) {
+      now.open = !now.open;
+      now.problem = undefined;
+      draw();
+      return;
+    }
+    if (now?.reading) return;
+    const { revealed, leave } = hidden;
+    revealed.set(key, { reading: true });
+    draw();
+    /** @type {Revealed} */
+    let got;
+    try {
+      got = { items: await actions.readHidden(entry.file, entry.source, leave.signal), open: true };
+    } catch (error) {
+      got = { problem: error instanceof Error ? error.message : String(error) };
+    }
+    if (leave.signal.aborted) return; // another chat is open now
+    revealed.set(key, got);
+    // The line may have been drawn anew meanwhile (the reply was saved): the one on the page shows it.
+    for (const node of hidden.root.querySelectorAll(".hidden-text")) {
+      if (/** @type {HTMLElement} */ (node).dataset.slot === `hidden:${key}`) lines.get(node)?.();
+    }
+  });
+  add.addEventListener("click", () => {
+    const now = hidden.revealed.get(key);
+    if (!now?.items) return;
+    now.problem = actions.addToMessage(text.hiddenQuote(entry.file, now.items)) ?? undefined;
+    draw();
+  });
+  draw();
+  const line = el("div", { class: "hidden-text", "data-slot": `hidden:${key}` },
+    el("div", { class: "hidden-head" }, el("span", {}, text.hiddenKept(entry.file, entry.elements)),
+      el("div", { class: "hidden-actions" }, show, add)),
+    body);
+  lines.set(line, draw);
+  return line;
+}
+
+/** How to draw each hidden-text line again, by its element. @type {WeakMap<Element, () => void>} */
+const lines = new WeakMap();
+
+/**
+ * The card itself, and below it the chart the call returned (if any).
+ * @param {ToolView} tool
+ * @param {number} index
+ * @param {boolean} writing
+ * @param {Set<string>} opened
+ * @returns {HTMLElement[]}
+ */
+function cardParts(tool, index, writing, opened) {
   const name = text.toolNames[tool.name] ?? tool.name;
   const stored = tool.result ? parseResult(tool.result.content) : null;
   const failed = stored ? stored.status === "error" : Boolean(tool.result?.isError);

@@ -1,0 +1,25 @@
+{
+  "name": "hidden-text",
+  "match": "\\bhidden text\\b",
+  "description": "Reads the demo PDF and finds its hidden line, whose text snild keeps from the model. The answer points the person to Show and Add to message below the call, and says so only if the browser really found the hidden line and kept its text out.",
+  "title": "Hidden text in the report",
+  "steps": [
+    {
+      "text": "I'll read the demo report and look for hidden text.",
+      "tool_calls": [
+        {
+          "name": "run_js",
+          "input": {
+            "code": "const { html } = await pdf.html(\"demo/report.pdf\");\nconst page = new DOMParser().parseFromString(html, \"text/html\");\nconst hidden = [...page.querySelectorAll(\"[data-hidden]\")].map((element) => element.getAttribute(\"data-hidden\"));\nconst withText = page.querySelectorAll(\"[data-hidden][data-text]\").length;\nreturn `hidden elements: ${hidden.length} (${hidden.join(\", \")}); their text was ${withText ? \"given to me\" : \"kept from me\"}`;"
+          }
+        }
+      ]
+    },
+    {
+      "expect_tool_result": {
+        "contains": "hidden elements: 1 (samecolour); their text was kept from me"
+      },
+      "text": "The report has one hidden line, on page 1, in the same colour as the page, so nobody reading it can see it. snild keeps hidden text from me, because it can carry instructions meant for a model.\n\nYou can read it yourself: press **Show** below the call. If you want me to look at it, press **Add to message** and send it."
+    }
+  ]
+}

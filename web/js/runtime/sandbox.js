@@ -1,10 +1,14 @@
 // @ts-check
 /**
- * Where run_js runs: two locked frames (web/frames/), made when first needed and kept warm.
+ * Where run_js runs: three locked frames (web/frames/), made when first needed and kept warm.
  *
  * - The code frame runs the model's JavaScript in a fresh worker per call. Its policy names no address: the
  *   code can load and send nothing, anywhere. This page hands it d3 and linkedom as text.
  * - The database frame runs DuckDB for the code's sql(); it reads only the files this page hands it.
+ * - The PDF frame reads PDFs with digpdf for the code's pdf.html(); it gets each PDF's bytes from this page.
+ *   Text hidden on a PDF's pages never reaches the code: the call's result only names the files that had some,
+ *   and the person can look at it (readHidden) and add it to their own message. A PDF's raw bytes never reach
+ *   the code either.
  *
  * Each frame is an <iframe sandbox="allow-scripts"> (no origin, no cookies, no way to the page but its one
  * MessageChannel port). The page decides everything that matters from outside the frames: one call at a time,
@@ -18,18 +22,31 @@ const DEADLINE_MS = 30_000;
 const PING_MS = 500;
 const SILENCE_MS = 3_000;   // no answer to a ping for this long: the frame is gone (crashed, or out of memory)
 const GRACE_MS = 2_000;     // a frame asked to cancel or clean up gets this long before it is replaced
-const MAX_FILE_BYTES = 1_000_000; // fs.readFile hands over a file whole only up to this size; sql() reads any
-const MAX_OPEN_ASKS = 8;    // requests (fs, sql) one call may have waiting at once
+const MAX_FILE_BYTES = 1_000_000; // fs.readFile and pdf.html take a file whole only up to this size; sql() any
+const MAX_OPEN_ASKS = 8;    // requests (fs, sql, pdf) one call may have waiting at once
 
 /** The files every chat can use, served with the page. */
-const DEMO_FILES = ["demo/sales.csv", "demo/sales.xlsx"];
+const DEMO_FILES = ["demo/sales.csv", "demo/sales.xlsx", "demo/report.pdf"];
+/** A PDF's digest as digpdf records it: what tells one file from another under the same name. */
+const SOURCE = /^sha256:[0-9a-f]{64}$/;
+/** The ones DuckDB reads; only these are handed to it. */
+const TABLE_FILES = DEMO_FILES.filter((name) => /\.(csv|xlsx)$/i.test(name));
 
 /**
- * What a call came to. `value` is the code's return value as text, `svg` a returned SVG chart.
+ * What a call came to. `value` is the code's return value as text, `svg` a returned SVG chart, `hidden` the PDFs
+ * whose hidden text was kept from the code (how many elements, and the PDF's digest).
+ * @typedef {{file: string, elements: number, source: string}} HiddenFile
  * @typedef {{status: "ok" | "error", seconds: number, value?: string, svg?: string, svgChars?: number,
- *            console?: string, error?: string}} RunOutcome
- * @typedef {{job: number, queries: Set<number>, asks: Set<number>, used: () => void}} Active
+ *            console?: string, error?: string, hidden?: HiddenFile[]}} RunOutcome
+ * @typedef {{page: number | null, kind: string, bbox: string, text: string}} HiddenText
+ * @typedef {{job: number, queries: Set<number>, reads: Set<number>, asks: Set<number>, used: () => void,
+ *            hidden: Map<string, HiddenFile>}} Active
  */
+
+/** Whether bytes are a PDF: its header may come after up to 1 KB of anything. @param {ArrayBuffer} bytes */
+function isPdf(bytes) {
+  return new TextDecoder("latin1").decode(new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 1024))).includes("%PDF-");
+}
 
 class Frame {
   /**
@@ -178,6 +195,9 @@ export class Sandbox {
     this.code = null;
     /** @type {Frame | null} */
     this.database = null;
+    /** @type {Frame | null} */
+    this.reader = null;
+    this.disposed = false;
     this.jobs = 0;
     /** @type {Promise<unknown>} */
     this.queue = Promise.resolve();
@@ -202,10 +222,12 @@ export class Sandbox {
     return turn;
   }
 
-  /** Throw both frames away (signing out): nothing of this person's stays in the page. */
+  /** Throw the frames away (signing out): nothing of this person's stays in the page, and nothing starts again. */
   dispose() {
+    this.disposed = true;
     this.code?.destroy("closed");
     this.database?.destroy("closed");
+    this.reader?.destroy("closed");
     this.bytes.clear();
   }
 
@@ -237,7 +259,8 @@ export class Sandbox {
     const frame = this.code;
     let usedDatabase = false;
     /** @type {Active} */
-    const active = { job, queries: new Set(), asks: new Set(), used: () => { usedDatabase = true; } };
+    const active = { job, queries: new Set(), reads: new Set(), asks: new Set(), used: () => { usedDatabase = true; },
+      hidden: new Map() };
     this.active = active;
 
     return new Promise((resolve, reject) => {
@@ -258,12 +281,14 @@ export class Sandbox {
         frame.onDone = null;
         frame.onDeath = null;
         this.active = null;
+        this.#tidyReader(active.reads.size > 0);
         await this.#tidy(job, usedDatabase, active.queries.size > 0);
         settle();
       };
       const seconds = () => Math.round((performance.now() - started) / 10) / 100;
       /** @param {Omit<RunOutcome, "seconds">} outcome */
-      const finish = (outcome) => void close(() => resolve({ ...outcome, seconds: seconds() }));
+      const finish = (outcome) => void close(() => resolve({ ...outcome, seconds: seconds(),
+        ...(active.hidden.size ? { hidden: [...active.hidden.values()] } : {}) }));
       /** The job itself drops its frame: this is not a crash, so it says what happened. @param {string} why */
       const drop = (why) => {
         frame.onDeath = null;
@@ -294,10 +319,11 @@ export class Sandbox {
       signal?.addEventListener("abort", stop, { once: true });
 
       frame.onDeath = async () => {
-        // The database may have shared the frame's process (Chrome puts frames of one site together), and so its
-        // end: if it does not answer, it goes too, before the next call could send it a query.
-        const database = this.database;
-        if (database && !database.dead && !(await database.alive(1000))) database.destroy("stopped responding");
+        // The other frames may have shared the frame's process (Chrome puts frames of one site together), and so
+        // its end: one that does not answer goes too, before the next call could send it work.
+        await Promise.all([this.database, this.reader].map(async (other) => {
+          if (other && !other.dead && !(await other.alive(1000))) other.destroy("stopped responding");
+        }));
         finish({ status: "error", error: "The code stopped responding (it may have used too much memory), so it "
           + "was ended. Try again with less data or a simpler approach." });
       };
@@ -329,7 +355,7 @@ export class Sandbox {
     } else if (data.type === "ask" && Number.isInteger(data.n) && !active.asks.has(data.n)) {
       if (active.asks.size >= MAX_OPEN_ASKS) {
         frame.post({ type: "answer", job: active.job, n: data.n,
-          error: `At most ${MAX_OPEN_ASKS} requests (fs, sql) can wait at once: await some before asking for more.` });
+          error: `At most ${MAX_OPEN_ASKS} requests (fs, sql, pdf) can wait at once: await some before asking for more.` });
         return;
       }
       active.asks.add(data.n);
@@ -355,6 +381,13 @@ export class Sandbox {
         } finally {
           active.queries.delete(n);
         }
+      } else if (op === "pdf") {
+        active.reads.add(n); // before any wait: a call that ends meanwhile finds the read and ends it
+        try {
+          answer = { value: await this.#pdf(active, String(args?.name)) };
+        } finally {
+          active.reads.delete(n);
+        }
       } else answer = { error: "Unknown request." };
     } catch (error) {
       answer = { error: error instanceof Error ? error.message : String(error) };
@@ -377,9 +410,115 @@ export class Sandbox {
     return bytes;
   }
 
-  /** CSV and other text as a string; anything else (Excel) as bytes. @param {string} name */
+  /**
+   * A PDF as HTML, read by digpdf in the PDF frame, which is started on the first read and kept warm.
+   * @param {Active} active
+   * @param {string} name
+   * @returns {Promise<{html: string, notes: string[]}>}
+   */
+  async #pdf(active, name) {
+    const bytes = await this.#fetch(name);
+    if (this.active !== active) throw new Error("The call has ended."); // no frame is started for an ended call
+    if (bytes.byteLength > MAX_FILE_BYTES) throw new Error(`${name} is too large to read (${bytes.byteLength} bytes).`);
+    const reader = await this.#reader();
+    if (this.active !== active || reader.dead) throw new Error("The call has ended.");
+    const reply = await this.#ask(reader, { type: "pdf", name, bytes: bytes.slice(0) });
+    if (this.active !== active) throw new Error("The call has ended.");
+    const elements = Number(reply.hidden) || 0;
+    const source = String(reply.source ?? "");
+    if (elements > 0 && SOURCE.test(source)) active.hidden.set(name, { file: name, elements, source });
+    return { html: String(reply.html), notes: Array.isArray(reply.notes) ? reply.notes.map(String) : [] };
+  }
+
+  /**
+   * The text hidden in a PDF, for the person to look at: read by this page and never handed to code. It takes
+   * its turn after any call (as a call does), so the two never share the PDF frame. `source` is the digest of
+   * the PDF the call read; another file now under that name is refused. `signal`: the person left the chat.
+   * @param {string} name
+   * @param {string} source
+   * @param {AbortSignal} [signal]
+   * @returns {Promise<HiddenText[]>}
+   */
+  readHidden(name, source, signal) {
+    const turn = this.queue.then(() => this.#readHidden(name, source, signal));
+    this.queue = turn.catch(() => {});
+    return turn;
+  }
+
+  /** @param {string} name @param {string} source @param {AbortSignal} [signal] @returns {Promise<HiddenText[]>} */
+  async #readHidden(name, source, signal) {
+    signal?.throwIfAborted();
+    if (!SOURCE.test(source)) throw new Error(`Which version of ${name} the code read is not known.`);
+    // The PDF frame is this preview's from the moment it asks for it (no call runs meanwhile), so when time runs
+    // out or the person leaves, the frame goes with it, started or not: digpdf cannot be interrupted, and its
+    // answer would belong to no one. A stopped preview touches nothing after its next wait.
+    let stopped = false;
+    let usesReader = false;
+    /** @type {(error: Error) => void} */
+    let fail = () => {};
+    const over = new Promise((_, reject) => { fail = reject; });
+    /** @param {Error} error */
+    const stop = (error) => {
+      stopped = true;
+      if (usesReader) this.reader?.destroy(error.message);
+      fail(error);
+    };
+    const timer = setTimeout(() => stop(new Error("The PDF reader did not answer in time.")), this.deadlineMs);
+    const leave = () => stop(new DOMException("The chat was closed.", "AbortError"));
+    signal?.addEventListener("abort", leave, { once: true });
+    const read = async () => {
+      const bytes = await this.#fetch(name);
+      if (stopped) return [];
+      if (bytes.byteLength > MAX_FILE_BYTES || !isPdf(bytes)) throw new Error(`${name} cannot be read as a PDF.`);
+      usesReader = true;
+      const reader = await this.#reader();
+      if (stopped || reader.dead) return [];
+      const reply = await this.#ask(reader, { type: "pdf", name, bytes: bytes.slice(0), hidden: true });
+      if (reply.source !== source) throw new Error(`${name} has changed since the code read it.`);
+      return Array.isArray(reply.hidden) ? reply.hidden : [];
+    };
+    try {
+      return await Promise.race([read(), over]);
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", leave);
+      if (usesReader) this.reader?.watch(false); // no call runs meanwhile: this was the frame's only work
+    }
+  }
+
+  /** The PDF frame, started on the first read and kept warm. @returns {Promise<Frame>} */
+  async #reader() {
+    if (this.disposed) throw new Error("The PDF reader is closed.");
+    if (!this.reader || this.reader.dead) {
+      this.reader = new Frame(`${this.assets}/frames/pdf.html`, Promise.resolve({}), () => {});
+    }
+    const reader = this.reader;
+    await reader.ready.catch((/** @type {Error} */ error) => {
+      throw new Error(`The PDF reader could not start: ${error.message}`);
+    });
+    return reader;
+  }
+
+  /** One request to the PDF frame, watched while it runs. @param {Frame} reader @param {Record<string, unknown>} message */
+  async #ask(reader, message) {
+    reader.watch(true);
+    const reply = await reader.request(message).catch((/** @type {Error} */ error) => {
+      throw new Error(`The PDF reader ${error.message}; the next read starts a fresh one.`);
+    });
+    if (typeof reply.error === "string") throw new Error(reply.error);
+    return reply;
+  }
+
+  /**
+   * CSV and other text as a string; anything else (Excel) as bytes. A PDF is refused: its raw bytes would let the
+   * code dig out the text hidden on its pages.
+   * @param {string} name
+   */
   async #readFile(name) {
     const bytes = await this.#fetch(name);
+    if (/\.pdf$/i.test(name) || isPdf(bytes)) {
+      throw new Error(`${name} is a PDF: read it with pdf.html(). Its raw bytes are not handed to code.`);
+    }
     if (bytes.byteLength > MAX_FILE_BYTES) {
       throw new Error(`${name} is too large to read whole (${bytes.byteLength} bytes); query it with sql() instead.`);
     }
@@ -392,7 +531,7 @@ export class Sandbox {
    */
   async #sql(active, query) {
     if (!this.database || this.database.dead) {
-      this.database = new Frame(`${this.assets}/frames/duckdb.html`, Promise.resolve({ names: DEMO_FILES }), () => {});
+      this.database = new Frame(`${this.assets}/frames/duckdb.html`, Promise.resolve({ names: TABLE_FILES }), () => {});
     }
     const database = this.database;
     active.used(); // from here on the call has the database: a stop while it starts replaces it
@@ -403,7 +542,7 @@ export class Sandbox {
     const first = database.job !== active.job;
     if (first) {
       database.job = active.job;
-      database.files = Promise.all(DEMO_FILES.map(async (name) => [name, (await this.#fetch(name)).slice(0)]))
+      database.files = Promise.all(TABLE_FILES.map(async (name) => [name, (await this.#fetch(name)).slice(0)]))
         .then(Object.fromEntries);
     }
     const files = await /** @type {Promise<Record<string, ArrayBuffer>>} */ (database.files);
@@ -415,6 +554,18 @@ export class Sandbox {
       });
     if (typeof reply.error === "string") throw new Error(reply.error);
     return reply.rows;
+  }
+
+  /**
+   * After a call: the PDF frame rests, or is replaced if a read is still under way (digpdf cannot be
+   * interrupted, and its answer would belong to no one).
+   * @param {boolean} busy
+   */
+  #tidyReader(busy) {
+    const reader = this.reader;
+    if (!reader || reader.dead) return;
+    reader.watch(false);
+    if (busy) reader.destroy("a PDF was still being read");
   }
 
   /**

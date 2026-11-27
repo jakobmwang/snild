@@ -13,12 +13,15 @@ import { Sandbox } from "./sandbox.js";
 /**
  * @param {{assets: string, resultChars: number}} options where the frames are served, and the most characters a
  *   tool result may have (from /bootstrap)
- * @returns {{tools: Map<string, import("../core/loop.js").ToolRunner>, dispose: () => void}} the tools, and how
- *   to throw away what they keep in the page (on signing out)
+ * @returns {{tools: Map<string, import("../core/loop.js").ToolRunner>, dispose: () => void,
+ *            readHidden: (name: string, source: string, signal?: AbortSignal) =>
+ *              Promise<import("./sandbox.js").HiddenText[]>}} the
+ *   tools; how to throw away what they keep in the page (on signing out); and how the person reads the text
+ *   hidden in a PDF that a call read (it never goes to the code)
  */
 export function browserTools({ assets, resultChars }) {
   /** @type {Sandbox | null} */
-  let sandbox = null; // made on the first call: most chats never run code
+  let sandbox = null; // made when first needed: most chats never run code
   const tools = new Map([
     ["run_js", /** @type {import("../core/loop.js").ToolRunner} */ (async (call, signal) => {
       sandbox ??= new Sandbox(assets);
@@ -26,5 +29,9 @@ export function browserTools({ assets, resultChars }) {
       return resultText(await sandbox.run(code, signal), resultChars);
     })],
   ]);
-  return { tools, dispose: () => sandbox?.dispose() };
+  return {
+    tools,
+    dispose: () => sandbox?.dispose(),
+    readHidden: (name, source, signal) => (sandbox ??= new Sandbox(assets)).readHidden(name, source, signal),
+  };
 }

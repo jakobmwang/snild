@@ -169,11 +169,14 @@ The browser runs a step's tool calls one after another and posts all their resul
 result is a JSON object in the `content` text, always within the 50,000-character limit:
 
     {"run_js": 1, "status": "ok", "seconds": 0.42, "error": "...", "note": "...",
-     "value": "...", "console": "...", "svg": "<svg ...>"}
+     "value": "...", "console": "...", "svg": "<svg ...>",
+     "hidden": [{"file": "report.pdf", "elements": 1, "source": "sha256:..."}]}
 
 `status` is `ok` or `error`; `value` is what the code returned, as text (JSON for data); `svg` is a returned SVG element, kept whole or left
 out (a `note` then says so); a text too long to fit is cut, and `note` says which. `is_error` is true when
-`status` is `error`.
+`status` is `error`. `hidden` (at most 20 entries) names each PDF the code read whose hidden text was kept from
+it: how many hidden elements it had, and the digest of the PDF, so that the browser shows that text only from the
+same file.
 
 Stop while tools run ends the running call at once and posts nothing: the chat keeps waiting for those results
 (`awaiting: "tools"`). Continue runs all of the step's calls again; a new message instead closes them (above).

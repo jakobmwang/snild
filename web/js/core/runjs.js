@@ -6,15 +6,21 @@
  * until the rest fits, and a note says what was cut.
  *
  *   {"run_js": 1, "status": "ok" | "error", "seconds": 0.42, "error": "...", "note": "...",
- *    "value": "...", "console": "...", "svg": "<svg ...>"}
+ *    "value": "...", "console": "...", "svg": "<svg ...>",
+ *    "hidden": [{"file": "report.pdf", "elements": 1, "source": "sha256:..."}]}
+ *
+ * `hidden` names the PDFs the call read whose hidden text was kept from the code: how many elements, and the
+ * PDF's digest, so the chat can let the person look at exactly that file's hidden text later.
  */
 
 const RESULT_VERSION = 1;
+const MAX_HIDDEN_FILES = 20;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /**
+ * @typedef {{file: string, elements: number, source: string}} HiddenFile
  * @typedef {{run_js: number, status: "ok" | "error", seconds: number, error?: string, note?: string,
- *            value?: string, console?: string, svg?: string}} RunJsResult
+ *            value?: string, console?: string, svg?: string, hidden?: HiddenFile[]}} RunJsResult
  */
 
 /**
@@ -30,6 +36,9 @@ export function resultText(outcome, limit) {
   /** @type {string[]} */
   const notes = [];
   if (outcome.svgChars) notes.push(tooLarge(outcome.svgChars));
+  // A few short names, from this page, never cut: what lets the chat offer the person the hidden text.
+  const hidden = outcome.hidden?.slice(0, MAX_HIDDEN_FILES)
+    .map(({ file, elements, source }) => ({ file: file.slice(0, 500), elements, source: source.slice(0, 100) }));
   let svg = outcome.svg ? withNamespace(clean(outcome.svg) ?? "") : undefined;
 
   /** The result with every text cut to at most `cap` characters (from its start), and notes on what was cut. */
@@ -48,6 +57,7 @@ export function resultText(outcome, limit) {
     if (texts.value !== undefined) result.value = cut("value");
     if (texts.console !== undefined) result.console = cut("console");
     if (svg) result.svg = svg;
+    if (hidden?.length) result.hidden = hidden;
     return JSON.stringify(result);
   };
 
@@ -99,7 +109,14 @@ export function parseResult(content) {
     const ok = result && result.run_js === RESULT_VERSION && (result.status === "ok" || result.status === "error")
       && typeof result.seconds === "number"
       && ["error", "note", "value", "console", "svg"].every((key) => result[key] === undefined || typeof result[key] === "string");
-    return ok ? result : null;
+    if (!ok) return null;
+    if (result.hidden !== undefined) { // kept only if every entry is what this page writes
+      const valid = Array.isArray(result.hidden) && result.hidden.every((entry) => entry && typeof entry.file === "string"
+        && Number.isInteger(entry.elements) && entry.elements > 0 && typeof entry.source === "string"
+        && /^sha256:[0-9a-f]{64}$/.test(entry.source));
+      if (!valid) delete result.hidden;
+    }
+    return result;
   } catch {
     return null;
   }

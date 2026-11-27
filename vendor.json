@@ -53,6 +53,20 @@
         {"path": "linkedom/worker.js", "url": "https://cdn.jsdelivr.net/npm/linkedom@0.18.15/worker.js", "sha256": "0f4d0c736eac11c98c1d7b7a041a0c36c8d5aa706dfeae64d84747d8b333f3d3"},
         {"path": "linkedom/LICENSE", "url": "https://cdn.jsdelivr.net/npm/linkedom@0.18.15/LICENSE", "sha256": "dc6d4961d8b6ee747231582ae9c53ce1d66bf76bc9f5a28f554c0e97210953bf"}
       ]
+    },
+    {
+      "name": "digpdf",
+      "version": "0.3.0",
+      "license": "digpdf licence: free to use, also commercially, and to redistribute unmodified with LICENSE and THIRD-PARTY-NOTICES.txt; not open source",
+      "homepage": "https://digpdf.com",
+      "files": [
+        {"path": "digpdf/digpdf.mjs", "url": "https://cdn.jsdelivr.net/npm/digpdf@0.3.0/digpdf.mjs", "sha256": "e74c36fe1efbd01ed36f92559849556526905d0f10954715f05d71a4c256f947"},
+        {"path": "digpdf/digpdf.wasm", "url": "https://cdn.jsdelivr.net/npm/digpdf@0.3.0/digpdf.wasm", "sha256": "dfc009233afb11b345df388b38d47f788bcd6de18a11207ef252ab24c6160c1f"},
+        {"path": "digpdf/pdfium.wasm", "url": "https://cdn.jsdelivr.net/npm/digpdf@0.3.0/pdfium.wasm", "sha256": "e90c32a939a6323159184f77c92931c0646fad6eaac32642035c73d447abc984"},
+        {"path": "digpdf/pdfium.js", "url": "https://cdn.jsdelivr.net/npm/digpdf@0.3.0/pdfium.js", "sha256": "2623f15ead0a45cbfa7b1a3a222802f43bce20fff08dc4c3ae599020a1f2ac4b"},
+        {"path": "digpdf/LICENSE", "url": "https://cdn.jsdelivr.net/npm/digpdf@0.3.0/LICENSE", "sha256": "83f8d88bd6aa1d78fee504df165923794b2acfe639398996be8718faabfb0c2a"},
+        {"path": "digpdf/THIRD-PARTY-NOTICES.txt", "url": "https://cdn.jsdelivr.net/npm/digpdf@0.3.0/THIRD-PARTY-NOTICES.txt", "sha256": "422b0c580c182f43c9e4f51ac13b36d16c4d5038279f698d3dac1a6352425d18"}
+      ]
     }
   ]
 }

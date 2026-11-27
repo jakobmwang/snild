@@ -199,7 +199,10 @@ class App {
       menus: this.menus,
     });
     this.scroller = el("div", { class: "scroller" });
-    this.transcript = new TranscriptView(this.scroller);
+    this.transcript = new TranscriptView(this.scroller, {
+      readHidden: (name, source, signal) => this.tools.readHidden(name, source, signal),
+      addToMessage: (quote) => this.#addToMessage(quote),
+    });
     this.empty = el("div", { class: "empty" });
     this.scroller.append(this.transcript.element, this.empty);
     this.title = el("h1", { class: "chat-title" });
@@ -446,6 +449,22 @@ class App {
     }
     if (this.appNotice) notices.push(this.#notice(this.appNotice, null, () => {}));
     this.notices.replaceChildren(...notices);
+  }
+
+  /**
+   * Put a quote of hidden text the person looked at at the end of their message, after what they have written:
+   * it goes to the model only when they send it. Returns why it could not, or null.
+   * @param {string} quote
+   * @returns {string | null}
+   */
+  #addToMessage(quote) {
+    const typed = this.composer.input.value.replace(/\s+$/, "");
+    const message = typed ? `${typed}\n\n${quote}` : quote;
+    if (message.length > this.info.limits.message_chars) return text.hiddenTooLong;
+    this.composer.setText(message);
+    saveDraft(this.user.id, this.conversation?.chatId ?? null, message);
+    this.composer.focus();
+    return null;
   }
 
   /**

@@ -116,9 +116,9 @@ export const text = Object.freeze({
   emptyTitle: "What can I help with?",
   emptyLead: "Ask anything. The test model plays scripted answers, so these show what snild can do:",
   starters: [
-    { label: "A formatted answer", prompt: "Show me some markdown" },
     { label: "Think it through first", prompt: "Which is larger, 0.9 or 0.11? Think it through." },
     { label: "Analyse data with code", prompt: "Analyse the demo sales data" },
+    { label: "Check a PDF report", prompt: "Check the demo sales report against the data" },
   ],
   jumpToLatest: "Jump to latest",
   copyAnswer: "Copy answer",
@@ -175,6 +175,22 @@ export const text = Object.freeze({
   stoppedEarly: "Stopped before an answer was written.",
   unfinished: "The answer is not finished.",
   toolsStopped: "Stopped while the code ran. Continue runs it again, or write something new.",
+  hiddenKept: (file, count) => `${file} contains hidden text${count === 1 ? "" : ` in ${count} places`}, `
+    + "kept from the model: text no one sees on the page, which may hold instructions meant for it.",
+  showHidden: "Show",
+  hideHidden: "Hide",
+  readingHidden: "Reading…",
+  addHidden: "Add to message",
+  hiddenTooLong: "That would make the message too long. Copy the part you need instead.",
+  /** How a piece of text is hidden, from digpdf's data-hidden (several joined by +). @param {string} kind */
+  hiddenKind: (kind) => kind.split("+").map((part) => ({ offpage: "off the page", clipped: "cut off",
+    covered: "covered", invisible: "invisible", samecolour: "in the colour of the page", tiny: "too small to see" })[part]
+    ?? part).join(", "),
+  /** @param {{page: number | null, kind: string}} item */
+  hiddenWhere: (item) => `${item.page ? `Page ${item.page}` : "Outside the pages"}, ${text.hiddenKind(item.kind)}`,
+  /** @param {string} file @param {{page: number | null, kind: string, text: string}[]} items */
+  hiddenQuote: (file, items) => [`Hidden text in ${file}, kept from the model until now:`,
+    ...items.map((item) => `> ${text.hiddenWhere(item)}: ${item.text.replace(/\r\n|\r|\n/g, "\n> ")}`)].join("\n"),
   toolsWaiting: "The code in this answer has not run yet.",
   signOutFailed: "Could not sign out: snild cannot be reached. Try again.",
   renameFailed: "The chat could not be renamed. Try again.",

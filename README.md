@@ -1,6 +1,6 @@
 # snild
 
-snild is a self-hosted AI chat that runs in the browser: one container, one SQLite file. This early preview has accounts that admins manage in the browser, streamed replies with Stop, chats that survive a reload, a restart or a second tab, model-written titles, and a first tool: the model's JavaScript, with SQL over spreadsheets and d3 charts, runs sandboxed in the browser, never on the server. All of it works with a built-in scripted test model. Planned: connections to the model APIs admins add, OIDC sign-in as an alternative to local accounts, files in chats, and reports. See [ARCHITECTURE.md](ARCHITECTURE.md).
+snild is a self-hosted AI chat that runs in the browser: one container, one SQLite file. This early preview has accounts that admins manage in the browser, streamed replies with Stop, chats that survive a reload, a restart or a second tab, model-written titles, and a first tool: the model's JavaScript, with SQL over spreadsheets, PDFs read as HTML and d3 charts, runs sandboxed in the browser, never on the server. All of it works with a built-in scripted test model. Planned: connections to the model APIs admins add, OIDC sign-in as an alternative to local accounts, files in chats, and reports. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ![A chat in snild: the test model runs JavaScript over the demo sales files, draws a bar chart of sales by region and answers with a table.](docs/screenshot.png)
 
@@ -16,7 +16,7 @@ docker compose logs snild
 
 The log shows a one-time setup code. Open <http://localhost:8080>, enter the code and create your admin account. The setup code works for 30 minutes; until the first admin exists, restarting snild (`docker compose restart snild`) prints a new one.
 
-Then ask the test model to *show me some markdown*: it streams a formatted sample answer, and the chat gets a title. Or ask it to *analyse the demo sales data*: it runs real code in your browser over two demo files (the same sales as CSV and Excel), checks one against the other and draws a chart.
+Then ask the test model to *show me some markdown*: it streams a formatted sample answer, and the chat gets a title. Or ask it to *analyse the demo sales data*: it runs real code in your browser over two demo files (the same sales as CSV and Excel), checks one against the other and draws a chart. Or ask it to *check the demo sales report against the data*: it reads a PDF report of the same sales and finds the figure that is wrong. The report also hides a line of text, which snild keeps from the model: below the call you can show it and, if you like, add it to your message.
 
 ## People
 
@@ -40,4 +40,4 @@ Set them in the environment or in a `.env` file next to `compose.yaml`. What sni
 
 ## Licence
 
-snild is licensed under the [Apache License 2.0](LICENSE).
+snild is licensed under the [Apache License 2.0](LICENSE). The container image also includes the browser libraries listed in `vendor.json`, each under its own licence. One of them, digpdf, which reads PDFs, is not open source: it may be used for any purpose, including commercial use, and redistributed unmodified, provided its licence and third-party notices go with every copy. The image keeps both beside it (`web/vendor/digpdf/`).

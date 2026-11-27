@@ -44,7 +44,7 @@ SYSTEM_PROMPT = Path(__file__).with_name("system_prompt.md")
 PAGE = "index.html"
 
 
-FRAME_PAGES = {"frames/code.html": "code", "frames/duckdb.html": "duckdb"}
+FRAME_PAGES = {"frames/code.html": "code", "frames/duckdb.html": "duckdb", "frames/pdf.html": "pdf"}
 INLINE_SCRIPT = re.compile(r'<script(?: type="importmap")?>(.*?)</script>', re.S)  # not <script src=...>
 
 

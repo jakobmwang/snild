@@ -23,9 +23,10 @@ def test_the_page_has_a_strict_content_security_policy(client):
         "font-src": "'self'", "connect-src": "'self'", "manifest-src": "'self'", "object-src": "'none'",
         "base-uri": "'self'", "form-action": "'self'", "frame-ancestors": "'none'",
     }
-    # It may embed exactly the two locked tool frames, nothing else.
+    # It may embed exactly the three locked tool frames, nothing else.
     assert sorted(re.sub(r"/assets/[0-9a-f]{12}/", "/assets/V/", f) for f in frames) == [
-        "http://localhost/assets/V/frames/code.html", "http://localhost/assets/V/frames/duckdb.html"]
+        "http://localhost/assets/V/frames/code.html", "http://localhost/assets/V/frames/duckdb.html",
+        "http://localhost/assets/V/frames/pdf.html"]
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["referrer-policy"] == "no-referrer"
     assert response.headers["cache-control"] == "no-cache"
@@ -310,19 +311,35 @@ def test_the_tool_frames_are_locked_down(client):
     assert f"'sha256-{digest}'" in csp["script-src"].split()
     assert "'unsafe-eval'" not in csp["script-src"] and "'unsafe-inline'" not in csp["script-src"]
 
+    # The PDF frame runs no model code: digpdf's four files and nothing else, and only here may strings be
+    # evaluated as code (digpdf starts its PDF engine with new Function).
+    page = client.http.get(f"{base}/frames/pdf.html")
+    csp = policy(page.headers["content-security-policy"])
+    inline = re.search(r"<script>(.*?)</script>", page.text, re.S).group(1)
+    digest = base64.b64encode(hashlib.sha256(inline.encode()).digest()).decode()
+    digpdf = f"{own}/vendor/digpdf"
+    assert csp["script-src"] == f"{digpdf}/digpdf.mjs 'sha256-{digest}' blob: 'unsafe-eval'"
+    assert csp["connect-src"] == f"{digpdf}/digpdf.wasm {digpdf}/pdfium.wasm {digpdf}/pdfium.js"
+    assert csp["default-src"] == "'none'" and csp["worker-src"] == "blob:" and csp["frame-ancestors"] == "'self'"
+    for directive in ("img-src", "style-src", "form-action", "base-uri", "object-src"):
+        assert csp[directive] == "'none'"
+
 
 def test_only_libraries_and_frame_scripts_may_be_loaded_by_the_frames(client):
-    """The DuckDB frame has no origin, so to it snild is another site: CORS and CORP open for exactly what it loads
-    (the page fetches d3 and linkedom for the code frame itself)."""
+    """The DuckDB and PDF frames have no origin, so to them snild is another site: CORS and CORP open for exactly
+    what they load (the page fetches d3 and linkedom for the code frame itself)."""
     base = assets(client)
-    for path in ("vendor/d3/d3.min.js", "vendor/duckdb/duckdb-browser.mjs", "frames/duckdb-boot.js", "frames/arrow.js"):
+    for path in ("vendor/d3/d3.min.js", "vendor/duckdb/duckdb-browser.mjs", "frames/duckdb-boot.js", "frames/arrow.js",
+                 "vendor/digpdf/digpdf.mjs", "vendor/digpdf/digpdf.wasm", "vendor/digpdf/pdfium.js"):
         response = client.http.get(f"{base}/{path}")
         assert response.status_code == 200, path
         assert response.headers["access-control-allow-origin"] == "*", path
         assert response.headers["cross-origin-resource-policy"] == "cross-origin", path
-    for path in (f"{base}/js/main.js", f"{base}/demo/sales.csv", f"{base}/frames/code.html", "/api/v1/auth/status", "/"):
+    for path in (f"{base}/js/main.js", f"{base}/demo/sales.csv", f"{base}/frames/code.html", f"{base}/frames/pdf.html",
+                 "/api/v1/auth/status", "/"):
         response = client.http.get(path)
         assert "access-control-allow-origin" not in response.headers, path
         assert response.headers["cross-origin-resource-policy"] == "same-origin", path
     assert client.http.get(f"{base}/vendor/duckdb/duckdb-eh.wasm").headers["content-type"] == "application/wasm"
     assert client.http.get(f"{base}/vendor/duckdb/duckdb-browser.mjs").headers["content-type"].startswith("text/javascript")
+    assert client.http.get(f"{base}/vendor/digpdf/digpdf.mjs").headers["content-type"].startswith("text/javascript")

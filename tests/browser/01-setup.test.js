@@ -17,8 +17,9 @@ test("the setup code creates the first admin, then never works again", async (t)
     const linked = await browser.newPage();
     await linked.goto(`${BASE}/#setup=${code}`);
     await linked.waitFor(() => document.querySelector("#setup-username"));
-    assert.equal(await linked.eval(() => location.hash), "", "the code is wiped from the address bar");
-    assert.equal(await linked.eval(() => document.querySelector("#setup-code").value), code);
+    assert.ok(await linked.eval(() => location.hash === ""), "the code is wiped from the address bar");
+    // Compared without printing either value: a failed run's output is public.
+    assert.ok((await linked.eval(() => document.querySelector("#setup-code").value)) === code, "the link fills in the code");
     await assertClean(linked, "setup link");
     await linked.close();
 

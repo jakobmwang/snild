@@ -95,7 +95,7 @@ jobs:
           export SNILD_URL="http://$(hostname -I | awk '{print $1}'):8080"
           export SNILD_CHROME="$(command -v google-chrome)"
           node --test --test-reporter=tap --test-concurrency=1 --test-timeout=180000 "tests/browser/*.test.js" | tee "$RUNNER_TEMP/chrome.tap" \
-            || { sed -nE 's/^ *not ok [0-9]+ - (.*)/::error title=Chrome::\1/p' "$RUNNER_TEMP/chrome.tap"; exit 1; }
+            || { awk -v label=Chrome -f scripts/tap-annotations.awk "$RUNNER_TEMP/chrome.tap"; exit 1; }
       - name: Edge (loopback http origin), on a fresh instance so it also tests setup
         shell: bash
         run: |
@@ -104,7 +104,7 @@ jobs:
           export SNILD_URL="http://127.0.0.1:8080"
           export SNILD_CHROME="$(command -v microsoft-edge)"
           node --test --test-reporter=tap --test-concurrency=1 --test-timeout=180000 "tests/browser/*.test.js" | tee "$RUNNER_TEMP/edge.tap" \
-            || { sed -nE 's/^ *not ok [0-9]+ - (.*)/::error title=Edge::\1/p' "$RUNNER_TEMP/edge.tap"; exit 1; }
+            || { awk -v label=Edge -f scripts/tap-annotations.awk "$RUNNER_TEMP/edge.tap"; exit 1; }
       - name: Show the log if anything failed
         if: failure()
         run: docker compose logs | sed -E 's/(setup=|setup code )[A-Za-z0-9_-]+/\1<redacted>/g'

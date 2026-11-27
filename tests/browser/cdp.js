@@ -23,6 +23,7 @@ function findChrome() {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const SEND_TIMEOUT_MS = 90_000;
+const LOAD_TIMEOUT_MS = 30_000;
 
 export class Browser {
   static async launch() {
@@ -58,7 +59,18 @@ export class Browser {
     }
     const [port, path] = readFileSync(portFile, "utf8").split("\n");
     const browser = new Browser(proc, profile, new WebSocket(`ws://127.0.0.1:${port}${path}`));
-    await browser.ready;
+    let timer;
+    try {
+      await Promise.race([browser.ready, new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("could not connect to Chrome in 20 s")), 20_000);
+      })]);
+    } catch (error) {
+      browser.ready.catch(() => {}); // a late failure of the socket belongs to no one now
+      await browser.close(); // the browser process and its profile go
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
     return browser;
   }
 
@@ -171,16 +183,47 @@ export class Page {
   }
 
   async goto(url) {
-    const loaded = new Promise((resolve) => this.loadWaiters.push(resolve));
-    const result = await this.send("Page.navigate", { url });
-    if (result.errorText) throw new Error(`could not open ${url}: ${result.errorText}`);
-    await loaded;
+    const shown = url.split("#")[0]; // a fragment may hold a secret (the setup code): never in an error
+    await this.#duringLoad(shown, async () => {
+      const result = await this.send("Page.navigate", { url });
+      if (result.errorText) throw new Error(`could not open ${shown}: ${result.errorText}`);
+    });
   }
 
   async reload() {
-    const loaded = new Promise((resolve) => this.loadWaiters.push(resolve));
-    await this.send("Page.reload");
-    await loaded;
+    await this.#duringLoad("the reloaded page", () => this.send("Page.reload"));
+  }
+
+  /**
+   * Do `action` and wait for the load event it brings, at most LOAD_TIMEOUT_MS, then fail saying which page
+   * never finished loading. Whatever happens, nothing is left waiting.
+   * @param {string} what
+   * @param {() => Promise<unknown>} action
+   */
+  async #duringLoad(what, action) {
+    /** @type {() => void} */
+    let waiter = () => {};
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
+    let timer;
+    const loaded = new Promise((resolve) => {
+      waiter = () => resolve(undefined);
+      this.loadWaiters.push(waiter);
+    });
+    const late = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${what} did not finish loading within ${LOAD_TIMEOUT_MS / 1000} s`)),
+        LOAD_TIMEOUT_MS);
+      timer.unref?.();
+    });
+    try {
+      // The time limit covers the command itself as well as the load it brings.
+      await Promise.race([(async () => {
+        await action();
+        await loaded;
+      })(), late]);
+    } finally {
+      clearTimeout(timer);
+      this.loadWaiters = this.loadWaiters.filter((one) => one !== waiter);
+    }
   }
 
   /** Run a function in the page and return its (JSON) result. */

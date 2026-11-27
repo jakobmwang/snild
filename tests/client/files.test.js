@@ -50,3 +50,20 @@ test("Stop while a call waits for the chat's files ends it at once", async () =>
   stop.abort();
   await assert.rejects(running, (error) => error.name === "AbortError");
 });
+
+test("one who stops waiting for the list is forgotten at once, while the read goes on for others", async () => {
+  const files = new ChatFiles({ api: { listFiles: () => new Promise(() => {}) }, sync: { post() {} }, onChange() {},
+    onSignedOut() {} });
+  files.show("chat_1"); // a read that hangs
+  const stop = new AbortController();
+  const waiting = files.settled(stop.signal);
+  const other = files.settled();
+  assert.equal(files.waiters.size, 2);
+  stop.abort();
+  await waiting;
+  assert.equal(files.waiters.size, 1, "only the other one still waits");
+  assert.equal(files.reading, true);
+  files.show("chat_2"); // leaving the chat wakes the rest
+  await other;
+  assert.equal(files.waiters.size, 0);
+});

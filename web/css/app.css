@@ -276,7 +276,7 @@
   .empty-title { font-size: 1.875rem; font-weight: 650; letter-spacing: -0.025em; margin-bottom: var(--space-2); }
   .empty-lead { color: var(--muted); max-width: 30rem; margin: 0 auto var(--space-6); }
   .empty .notice { text-align: left; }
-  .starters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); text-align: left; }
+  .starters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); text-align: left; max-width: 36rem; margin-inline: auto; }
   .starter {
     display: grid; gap: var(--space-1); align-content: start; text-align: left;
     border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius-l);
@@ -451,6 +451,25 @@
   .files-toggle:hover, .files-toggle[aria-expanded="true"] { background: var(--hover); color: var(--text); }
   .files-toggle .icon { width: 1.125rem; height: 1.125rem; }
   .chat-view { position: relative; overflow: clip; } /* the closed files panel waits beyond its right edge */
+  /* The chat and, beside it on a wide screen, a report (over it on a narrow one) */
+  .workspace { display: flex; flex: 1; min-height: 0; }
+  .workspace[hidden] { display: none; }
+  .workspace > .chat-view { flex: 1; min-width: 0; }
+  .report-panel {
+    flex: 0 0 min(50%, 56rem); min-width: 0; display: flex; flex-direction: column;
+    background: var(--surface); border-left: 1px solid var(--line);
+  }
+  .report-panel[hidden] { display: none; }
+  .report-head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4); min-height: 3.5rem; }
+  .report-title { flex: 1; min-width: 0; margin: 0; font-size: 0.9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .report-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .report-note { margin: 0; padding: var(--space-4); color: var(--muted); }
+  .report-frame { flex: 1; width: 100%; border: 0; background: #fff; } /* a report is paper, in both themes */
+  .report-line {
+    display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin: 0 0 var(--space-3);
+    padding: var(--space-2) var(--space-3); border: 1px solid var(--line); border-radius: var(--radius); font-size: 0.875rem;
+  }
+  .report-line > span { flex: 1; min-width: 10rem; font-weight: 550; }
   .chat-view.is-dropping .scroll-area { outline: 2px dashed var(--accent); outline-offset: -8px; border-radius: var(--radius-xl); }
   .files-panel {
     position: absolute; inset: 0 0 0 auto; z-index: 30; width: min(90vw, 24rem); display: flex; flex-direction: column;
@@ -564,6 +583,11 @@
   .toast .icon { width: 1rem; height: 1rem; color: var(--ok); }
   .toast-error .icon { color: var(--danger); }
   .toast.is-leaving { opacity: 0; transform: translateY(6px); }
+
+  /* Below 960px a report covers the page rather than sharing it */
+  @media (max-width: 959px) {
+    .report-panel { position: fixed; inset: 0; z-index: 45; border-left: 0; }
+  }
 
   /* --- narrow screens: the chat list slides in over the page ------------------------------------------- */
   @media (max-width: 760px) {

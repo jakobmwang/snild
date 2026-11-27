@@ -14,6 +14,7 @@
  * (read again by this page, shown as plain text) and add it to their message; nothing more happens by itself.
  */
 
+import { parseReport, removedText } from "../core/report.js";
 import { parseResult } from "../core/runjs.js";
 import { el, icon } from "./dom.js";
 import { renderMarkdown } from "./markdown-view.js";
@@ -29,10 +30,11 @@ import { text } from "./strings.js";
 const AT_BOTTOM_PX = 48;
 
 /**
- * What the person can do with hidden text: read it (never handed to code), and add a quote of it to their
- * message, which returns why it could not, or null.
+ * What the person can do from a call's lines: read hidden text (never handed to code), add a quote of it to
+ * their message (which returns why it could not, or null), and open a report a call made.
  * @typedef {{readHidden: (entry: import("../core/runjs.js").HiddenFile, signal: AbortSignal) => Promise<HiddenText[]>,
- *            addToMessage: (quote: string) => string | null}} HiddenActions
+ *            addToMessage: (quote: string) => string | null,
+ *            openReport?: (report: {id: string, name: string}) => void}} HiddenActions
  * @typedef {import("../runtime/sandbox.js").HiddenText} HiddenText
  * @typedef {{items?: HiddenText[], open?: boolean, problem?: string, reading?: boolean}} Revealed
  * @typedef {{actions: HiddenActions | null, revealed: Map<string, Revealed>, leave: AbortController,
@@ -372,6 +374,7 @@ function copyButton(source) {
  * @returns {HTMLElement[]}
  */
 function toolParts(tool, index, writing, opened, hidden) {
+  if (tool.name === "render_html") return reportParts(tool, index, writing, opened, hidden);
   const parts = cardParts(tool, index, writing, opened);
   const stored = tool.result ? parseResult(tool.result.content) : null;
   if (stored?.hidden && hidden.actions) {
@@ -380,6 +383,45 @@ function toolParts(tool, index, writing, opened, hidden) {
     }
   }
   return parts;
+}
+
+/**
+ * A render_html call: its card (the HTML, or the file it came from; what was removed, or why it failed), and
+ * below it a line with the report's title and Open report, live and after a reload.
+ * @param {ToolView} tool
+ * @param {number} index
+ * @param {boolean} writing
+ * @param {Set<string>} opened
+ * @param {HiddenState} hidden
+ * @returns {HTMLElement[]}
+ */
+function reportParts(tool, index, writing, opened, hidden) {
+  const stored = tool.result ? parseReport(tool.result.content) : null;
+  const failed = stored ? stored.status === "error" : Boolean(tool.result?.isError);
+  const label = tool.result ? (failed ? text.reportFailed : text.reportMade)
+    : tool.phase === "running" ? text.reportMaking
+      : tool.phase === "queued" ? text.reportQueued
+        : tool.phase === "stopped" ? text.toolStopped
+          : writing ? text.reportWriting : text.reportNotMade;
+  const state = tool.result ? (failed ? "is-failed" : "is-done") : tool.phase === "running" ? "is-running"
+    : tool.phase === "queued" ? "is-waiting" : tool.phase === "stopped" || !writing ? "is-stopped" : "is-waiting";
+  const source = typeof tool.input?.html === "string" ? tool.input.html
+    : typeof tool.input?.file === "string" ? text.reportFrom(tool.input.file) : partialCode(tool.preview);
+  const removed = stored ? removedText(stored.removed) : "";
+  const fold = foldKey("tool", `${index}:${tool.id}`);
+  const card = el("details", { class: `tool ${state}`, "data-fold": fold, "data-slot": fold, open: opened.has(fold) },
+    el("summary", {}, label),
+    source ? section(text.reportSource, source, "tool-code") : null,
+    stored?.error ? section(text.toolError, stored.error, "tool-error-text") : null,
+    !stored && tool.result ? section(failed ? text.toolError : text.toolValue, tool.result.content, failed ? "tool-error-text" : "") : null,
+    removed ? section(text.reportRemoved, removed, "") : null);
+  if (stored?.status !== "ok" || !stored.id || !stored.file || !hidden.actions?.openReport) return [card];
+  const openReport = hidden.actions.openReport;
+  const report = { id: stored.id, name: stored.file };
+  const button = el("button", { type: "button", class: "button button-small" }, text.openReport);
+  button.addEventListener("click", () => openReport(report));
+  return [card, el("div", { class: "report-line", "data-slot": `report:${tool.id}` },
+    el("span", {}, stored.title || stored.file), button)];
 }
 
 /**

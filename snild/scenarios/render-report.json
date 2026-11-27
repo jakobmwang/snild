@@ -1,0 +1,18 @@
+{
+  "name": "render-report",
+  "description": "Calls render_html with the message as its JSON arguments (for tests): \"[scenario:render-report] {\\\"html\\\": \\\"<h1>Hi</h1>\\\"}\".",
+  "title": "A report",
+  "steps": [
+    {
+      "tool_calls": [
+        {
+          "name": "render_html",
+          "arguments_from_message": true
+        }
+      ]
+    },
+    {
+      "text": "Done."
+    }
+  ]
+}

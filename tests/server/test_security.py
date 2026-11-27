@@ -4,6 +4,7 @@ import base64
 import hashlib
 import ipaddress
 import re
+from pathlib import Path
 
 from conftest import Api, open_api
 
@@ -18,8 +19,12 @@ def test_the_page_has_a_strict_content_security_policy(client):
     response = client.http.get("/")
     csp = policy(response.headers["content-security-policy"])
     frames = csp.pop("frame-src").split()
+    # One inline style besides: the report stylesheet, by its hash (a report's srcdoc inherits this policy).
+    report_css = (Path(__file__).resolve().parents[2] / "web" / "css" / "report.css").read_bytes()
+    report_style = "'sha256-" + base64.b64encode(hashlib.sha256(report_css).digest()).decode() + "'"
     assert csp == {
-        "default-src": "'none'", "script-src": "'self'", "style-src": "'self'", "img-src": "'self' data: blob:",
+        "default-src": "'none'", "script-src": "'self'", "style-src": f"'self' {report_style}",
+        "img-src": "'self' data: blob:",
         "font-src": "'self'", "connect-src": "'self'", "manifest-src": "'self'", "object-src": "'none'",
         "base-uri": "'self'", "form-action": "'self'", "frame-ancestors": "'none'",
     }
@@ -30,6 +35,8 @@ def test_the_page_has_a_strict_content_security_policy(client):
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["referrer-policy"] == "no-referrer"
     assert response.headers["cache-control"] == "no-cache"
+    # The page learns the same hash, for each report's own policy.
+    assert client.http.get("/api/v1/bootstrap").json()["report_style"] == report_style.strip("'")
 
 
 def test_assets_live_under_a_content_version_and_are_cached_for_a_year(client):
@@ -93,7 +100,9 @@ def test_bootstrap_describes_everything_the_page_needs(client):
         "default_model": "emulator",
         "emulator": True,
         "limits": {"message_chars": 100_000, "tool_result_chars": 50_000},
+        "report_style": client.http.app.state.report_style,
     }
+    assert client.http.app.state.report_style.startswith("sha256-")
 
 
 def test_unknown_host_names_are_refused_even_for_reads(client):

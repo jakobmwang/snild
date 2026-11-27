@@ -9,7 +9,8 @@ Choosing a scenario, from the latest user message:
     3. otherwise the built-in echo reply.
 The step played is the number of assistant replies since that user message, so a scenario continues
 naturally after the browser posts tool results. A tool call with "code_from_message": true runs the user's
-message itself (without its marker) as run_js code: the browser tests use it to run code of their choosing.
+message itself (without its marker) as run_js code: the browser tests use it to run code of their choosing;
+"arguments_from_message": true sends the message (without its marker) as the call's JSON arguments.
 """
 
 from __future__ import annotations
@@ -153,6 +154,10 @@ class EmulatorProvider:
             yield ToolCallStart(call_id, call["name"])
             if call.get("code_from_message"):
                 arguments = json.dumps({"code": MARKER.sub("", _last_user_message(request.transcript)[1]).strip()})
+            elif call.get("arguments_from_message"):
+                arguments = MARKER.sub("", _last_user_message(request.transcript)[1]).strip()
+            elif "input_from_result" in call:
+                arguments = json.dumps(_input_from_result(call, request.transcript))
             elif "raw_arguments" in call:
                 arguments = call["raw_arguments"]
             else:
@@ -179,6 +184,21 @@ def _last_user_message(transcript: list[dict[str, Any]]) -> tuple[int, str]:
         if transcript[i]["type"] == "user":
             return i, transcript[i]["text"]
     return -1, ""
+
+
+def _input_from_result(call: dict[str, Any], transcript: list[dict[str, Any]]) -> dict[str, Any]:
+    """The call's input, with fields taken from the latest tool result (a JSON object): "input_from_result":
+    {"file": "value"} puts that result's "value" in "file", as a model uses what its code returned."""
+    data = dict(call.get("input", {}))
+    results = [it["content"] for it in transcript if it["type"] == "tool_result"]
+    try:
+        latest = json.loads(results[-1]) if results else {}
+    except ValueError:
+        latest = {}
+    for key, field in call["input_from_result"].items():
+        if isinstance(latest, dict) and isinstance(latest.get(field), str):
+            data[key] = latest[field]
+    return data
 
 
 def _pieces(text: str, size: int) -> list[str]:

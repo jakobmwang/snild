@@ -117,11 +117,16 @@ def is_private_literal(host: str) -> bool:
 
 
 class SecurityMiddleware:
-    def __init__(self, app: ASGIApp, public_url: PublicUrl | None = None, frames: tuple[str, ...] = ()):
-        """frames: the paths of the locked tool frames, the only pages the trusted page may embed."""
+    def __init__(self, app: ASGIApp, public_url: PublicUrl | None = None, frames: tuple[str, ...] = (),
+                 report_style: str | None = None):
+        """frames: the paths of the locked tool frames, the only pages the trusted page may embed.
+        report_style: the hash ("sha256-...") of the report stylesheet, the one inline style a report may carry:
+        a report is shown in an iframe's srcdoc, which inherits this page's policy."""
         self.app = app
         self.public_url = public_url
         self.frames = frames
+        self.page_csp = TRUSTED_PAGE_CSP if report_style is None else \
+            TRUSTED_PAGE_CSP.replace("style-src 'self'", f"style-src 'self' '{report_style}'")
 
     def _site(self, host: tuple[str, int | None], path: str) -> tuple[str, bool] | None:
         """(snild's own origin, whether COOP works there) for this Host, or None if snild does not answer it."""
@@ -216,7 +221,7 @@ class SecurityMiddleware:
                     out.append(OPENER_POLICY)
                 if b"content-security-policy" not in present:
                     frame_src = " ".join(f"{own_origin}{path}" for path in self.frames)
-                    csp = f"{TRUSTED_PAGE_CSP}; frame-src {frame_src}" if frame_src else TRUSTED_PAGE_CSP
+                    csp = f"{self.page_csp}; frame-src {frame_src}" if frame_src else self.page_csp
                     out.append((b"content-security-policy", csp.encode()))
                 if is_api and b"cache-control" not in present:
                     out.append((b"cache-control", b"no-store"))

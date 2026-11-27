@@ -24,11 +24,13 @@ export class ChatFiles {
     this.list = [];
     /** Whether the list has been read from the server for this chat (a failed read is not an empty chat). */
     this.loaded = false;
-    /** Settles once the list of the chat shown is here (or could not be read). @type {Promise<void>} */
+    /** Settles once the latest read of the list is over (whether or not it could be read). @type {Promise<void>} */
     this.ready = Promise.resolve();
     this.reads = 0;
     this.retried = -Infinity; // when retry() last read the list
     this.reading = false; // the latest read is under way
+    /** Who waits for the list to be read or for no read to be under way (see settled). @type {Set<() => void>} */
+    this.waiters = new Set();
   }
 
   /** Show another chat's files (none for a new chat). @param {string | null} chatId */
@@ -37,8 +39,12 @@ export class ChatFiles {
     this.list = [];
     this.loaded = !chatId; // a new chat has no files to read
     this.retried = -Infinity;
+    this.reads++; // a read for the chat shown before lands nowhere
+    this.reading = false;
+    this.#wake();
     this.onChange();
-    this.ready = chatId ? this.refresh() : Promise.resolve();
+    if (chatId) void this.refresh();
+    else this.ready = Promise.resolve();
   }
 
   /** The chat was just created here (by the first upload or message): it has no files yet. @param {string} chatId */
@@ -49,8 +55,37 @@ export class ChatFiles {
     }
   }
 
-  /** Read the list again; a newer read wins over an older one that lands later. */
-  async refresh() {
+  /**
+   * Settles once the list is read, or no read is under way any more (whichever read it was: a newer one that
+   * succeeds wakes those who waited while an older one still hangs). One who stops waiting (`signal`) is
+   * forgotten at once; the read itself goes on for the others.
+   * @param {AbortSignal} [signal]
+   * @returns {Promise<void>}
+   */
+  settled(signal) {
+    if (this.loaded || !this.reading || signal?.aborted) return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = () => {
+        this.waiters.delete(done);
+        signal?.removeEventListener("abort", done);
+        resolve();
+      };
+      this.waiters.add(done);
+      signal?.addEventListener("abort", done, { once: true });
+    });
+  }
+
+  #wake() {
+    for (const waiter of [...this.waiters]) waiter();
+  }
+
+  /** Read the list again; a newer read wins over an older one that lands later. `ready` is the latest read. */
+  refresh() {
+    this.ready = this.#read();
+    return this.ready;
+  }
+
+  async #read() {
     const chatId = this.chatId;
     if (!chatId) return;
     const asked = ++this.reads;
@@ -60,12 +95,16 @@ export class ChatFiles {
       if (asked !== this.reads || chatId !== this.chatId) return;
       this.list = files;
       this.loaded = true;
+      this.#wake();
       this.onChange();
     } catch (error) {
       if (/** @type {{status?: number}} */ (error)?.status === 401) this.onSignedOut();
       // otherwise the list stays as it was; the next change (or retry) reads it again
     } finally {
-      if (asked === this.reads) this.reading = false;
+      if (asked === this.reads) {
+        this.reading = false;
+        this.#wake();
+      }
     }
   }
 

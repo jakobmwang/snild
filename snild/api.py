@@ -379,6 +379,7 @@ async def bootstrap(request: Request, user: UserDep) -> dict[str, Any]:
         "default_model": config.default_model,
         "emulator": config.emulator_enabled,
         "limits": {"message_chars": MAX_MESSAGE_CHARS, "tool_result_chars": MAX_TOOL_RESULT_CHARS},
+        "report_style": getattr(request.app.state, "report_style", None),  # its hash, for a report's own policy
     }
 
 

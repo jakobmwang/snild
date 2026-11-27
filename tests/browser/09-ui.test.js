@@ -35,7 +35,7 @@ test("a chosen theme is used at once and after a reload", async () => {
 
 test("a starter fills the composer, and its reply streams with a timed reasoning fold", async () => {
   const page = await pageAs(browser, "alice");
-  await page.waitFor(() => document.querySelectorAll(".starter").length === 3, { what: "the starters" });
+  await page.waitFor(() => document.querySelectorAll(".starter").length === 4, { what: "the starters" });
   await page.eval(() => [...document.querySelectorAll(".starter")].find((b) => /Think it through/.test(b.textContent)).click());
   assert.match(await page.eval(() => document.querySelector("#message").value), /Think it through/);
   assert.equal(await page.eval(() => document.activeElement?.id), "message");

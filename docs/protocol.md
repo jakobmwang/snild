@@ -89,7 +89,7 @@ default 1000); lowering either leaves the files already there.
 | Method and path | What it does |
 |:--|:--|
 | `GET /health` | `{"status": "ok"}` when snild is up. |
-| `GET /bootstrap` | `version`; the `user`; the `models` they can choose (`{id, name, vision, test}`, where `test` marks the test model); `default_model`; `emulator` (the test model is on); `limits` (`message_chars`, `tool_result_chars`). |
+| `GET /bootstrap` | `version`; the `user`; the `models` they can choose (`{id, name, vision, test}`, where `test` marks the test model); `default_model`; `emulator` (the test model is on); `limits` (`message_chars`, `tool_result_chars`); `report_style` (the hash, `sha256-…`, of the report stylesheet a report's own policy allows, or `null` if the stylesheet is unavailable). |
 | `GET /chats` | The user's chats, newest first. |
 | `POST /chats` | Create a chat. Body (optional): `{"model_id": "…"}`; without it the default model. |
 | `GET /chats/{chat}` | The chat, its transcript, what it is `awaiting`, the `active_run` (`{id}`) if a reply is being written, and the `last_run` (`{id, status, error}`, or `null`), all as of one moment. Follow an active run from the start (`after=0`): the transcript holds none of its text yet. `last_run` tells a reloaded page how the latest reply ended (`completed`, `cancelled`, `failed`, `interrupted`), and `error` what went wrong, so it can offer to continue. |
@@ -179,7 +179,7 @@ names a tool that is not on offer, the server saves an error `tool_result` for i
 
 `snild/tools.json` lists the model's tools. The server offers only those marked `enabled`, the ones this
 version of the browser can run, and leaves the tool guidance out of the system prompt when there are none. In
-this version `run_js` is enabled; `render_html` and `fetch_url` are planned.
+this version `run_js` and `render_html` are enabled; `fetch_url` is planned.
 
 The browser runs a step's tool calls one after another and posts all their results in one turn. A `run_js`
 result is a JSON object in the `content` text, always within the 50,000-character limit:
@@ -193,6 +193,15 @@ out (a `note` then says so); a text too long to fit is cut, and `note` says whic
 `status` is `error`. `hidden` (at most 20 entries) names each PDF the code read whose hidden text was kept from
 it: how many hidden elements it had, the digest of the PDF and, for a chat's file, its `id`, so that the browser
 shows that text only from the same file.
+
+A `render_html` result is a JSON object too, naming the cleaned report the browser saved as a file of the chat:
+
+    {"render_html": 1, "status": "ok", "file": "report.html", "id": "file_...", "title": "...", "tables": 1,
+     "charts": 1, "removed": {"scripts": 1, "styles": 2}}
+    {"render_html": 1, "status": "error", "error": "...", "removed": {...}}
+
+`removed` counts what cleaning took out, by kind: `scripts`, `styles`, `resources`, `links` (addresses),
+`forms`, `attributes` and `elements`.
 
 Stop while tools run ends the running call at once and posts nothing: the chat keeps waiting for those results
 (`awaiting: "tools"`). Continue runs all of the step's calls again; a new message instead closes them (above).

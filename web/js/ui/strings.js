@@ -118,6 +118,7 @@ export const text = Object.freeze({
     { label: "Think it through first", prompt: "Which is larger, 0.9 or 0.11? Think it through." },
     { label: "Analyse data with code", prompt: "Analyse the demo sales data" },
     { label: "Check a PDF report", prompt: "Check the demo sales report against the data" },
+    { label: "Make a report", prompt: "Make a report of the demo sales" },
   ],
   jumpToLatest: "Jump to latest",
   copyAnswer: "Copy answer",
@@ -190,6 +191,24 @@ export const text = Object.freeze({
   /** @param {string} file @param {{page: number | null, kind: string, text: string}[]} items */
   hiddenQuote: (file, items) => [`Hidden text in ${file}, kept from the model until now:`,
     ...items.map((item) => `> ${text.hiddenWhere(item)}: ${item.text.replace(/\r\n|\r|\n/g, "\n> ")}`)].join("\n"),
+  // Reports
+  reportMade: "Made a report",
+  reportFailed: "The report could not be made",
+  reportMaking: "Making a report…",
+  reportWriting: "Writing a report…",
+  reportQueued: "Waiting to make a report…",
+  reportNotMade: "The report has not been made yet",
+  /** @param {string} file */
+  reportFrom: (file) => `From the file ${file}`,
+  reportSource: "HTML",
+  reportRemoved: "Removed from the report",
+  openReport: "Open report",
+  closeReport: "Close report",
+  reportOpening: "Opening the report…",
+  reportTooLarge: "This report is larger than 5 MiB, the most a report may be.",
+  reportGone: "This report is no longer in this chat.",
+  reportListFailed: "The chat's files could not be read, so the report cannot be opened now. Try again.",
+
   // Files
   files: "Files",
   /** @param {number} count */

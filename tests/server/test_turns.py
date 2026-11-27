@@ -360,7 +360,8 @@ def test_an_empty_call_id_is_answered_by_the_server():
 
 
 def test_only_the_tools_the_browser_runs_are_offered(config):
-    """The model is offered run_js (with the guidance), and a call to a tool that is not enabled gets an error."""
+    """The model is offered run_js and render_html (with the guidance), and a call to a tool that is not enabled
+    (fetch_url) gets an error."""
     seen = []
 
     class Recording(EmulatorProvider):
@@ -368,17 +369,19 @@ def test_only_the_tools_the_browser_runs_are_offered(config):
             seen.append((request.tools, request.system))
             return super().stream(request)
 
-    with open_api(config, Recording(speed=50), tools=ToolContract()) as http:
+    fetch = {"name": "fetch", "steps": [{"tool_calls": [{"name": "fetch_url", "input": {"url": "https://example.org/"}}]},
+                                        {"text": "Done."}]}
+    with open_api(config, Recording(scenarios={"fetch": fetch}, speed=50), tools=ToolContract()) as http:
         api = Api(http)
         api.set_up("alice")
         chat = api.new_chat()
-        events = api.say(chat["id"], 0, "[scenario:render-html] go")
+        events = api.say(chat["id"], 0, "[scenario:fetch] go")
         assert "tool_call" not in kinds(events)
         state = api.chat(chat["id"])
         assert state["awaiting"] == "model" and state["items"][-1]["type"] == "tool_result"
         assert state["items"][-1]["is_error"] and "no tool named" in state["items"][-1]["content"]
     tools, system = seen[0]
-    assert [tool["name"] for tool in tools] == ["run_js"] and ToolContract().guidance in system
+    assert [tool["name"] for tool in tools] == ["run_js", "render_html"] and ToolContract().guidance in system
 
 
 def test_the_tool_guidance_joins_the_prompt_only_with_tools(tmp_path):

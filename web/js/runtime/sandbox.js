@@ -66,7 +66,7 @@ const TABLE_FILES = DEMO_FILES.filter((name) => TABLE.test(name));
  */
 
 /** Whether bytes are a PDF: its header may come after up to 1 KB of anything. @param {ArrayBuffer} bytes */
-function isPdf(bytes) {
+export function isPdf(bytes) {
   return new TextDecoder("latin1").decode(new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 1024))).includes("%PDF-");
 }
 

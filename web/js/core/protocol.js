@@ -23,7 +23,8 @@
  * @typedef {{key: string, label: string, help: string, default: number | null, min: number, max: number,
  *            nullable: boolean, unit: string, group: string, value: number | null}} Setting
  * @typedef {{version: string, user: User, models: ModelInfo[], default_model: string | null,
- *            emulator: boolean, limits: {message_chars: number, tool_result_chars: number}}} Bootstrap
+ *            emulator: boolean, limits: {message_chars: number, tool_result_chars: number},
+ *            report_style: string | null}} Bootstrap   report_style: the report stylesheet's hash ("sha256-...")
  *
  * @typedef {{id: string, title: string, title_source: "none" | "provisional" | "model" | "user",
  *            model_id: string | null, revision: number, created_at: number, updated_at: number}} Chat

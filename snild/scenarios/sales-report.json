@@ -1,0 +1,43 @@
+{
+  "name": "sales-report",
+  "description": "Builds a report of the demo sales with run_js (SQL, a d3 chart, fs.writeFile) and shows it with render_html({file}).",
+  "match": "\\bmake a report of the demo sales\\b",
+  "title": "Demo sales report",
+  "steps": [
+    {
+      "thinking": "Total the demo sales per region with SQL, draw a bar chart with d3, write the report as a file, then show that file as a report so the chart is not copied through my arguments.",
+      "text": "I'll total the sales per region, draw a chart and write the report.",
+      "tool_calls": [
+        {
+          "name": "run_js",
+          "input": {
+            "code": "const byRegion = await sql(`\n  SELECT region, sum(amount) AS total, count(*) AS sales\n  FROM read_csv('demo/sales.csv')\n  GROUP BY region ORDER BY total DESC`);\nconst total = d3.sum(byRegion, (d) => d.total);\nconst width = 560, height = 260, margin = { top: 16, right: 16, bottom: 32, left: 64 };\nconst x = d3.scaleBand(byRegion.map((d) => d.region), [margin.left, width - margin.right]).padding(0.3);\nconst y = d3.scaleLinear([0, d3.max(byRegion, (d) => d.total)], [height - margin.bottom, margin.top]).nice();\nconst svg = d3.create(\"svg\").attr(\"width\", width).attr(\"height\", height)\n  .attr(\"viewBox\", [0, 0, width, height]).attr(\"font-family\", \"system-ui, sans-serif\");\nsvg.append(\"g\").selectAll(\"rect\").data(byRegion).join(\"rect\")\n  .attr(\"x\", (d) => x(d.region)).attr(\"y\", (d) => y(d.total))\n  .attr(\"width\", x.bandwidth()).attr(\"height\", (d) => y(0) - y(d.total)).attr(\"fill\", \"#3657c8\");\nsvg.append(\"g\").attr(\"transform\", `translate(0,${height - margin.bottom})`).call(d3.axisBottom(x));\nsvg.append(\"g\").attr(\"transform\", `translate(${margin.left},0)`).call(d3.axisLeft(y).ticks(5, \"~s\"));\nconst rows = byRegion.map((d) => `<tr><td>${d.region}</td><td>${d.sales}</td><td>${d.total.toLocaleString(\"en\")}</td></tr>`).join(\"\");\nconst html = `<title>Demo sales by region</title>\n<h1>Demo sales by region</h1>\n<p>${d3.sum(byRegion, (d) => d.sales).toLocaleString(\"en\")} sales worth ${total.toLocaleString(\"en\")} in all.</p>\n<figure>${svg.node().outerHTML}<figcaption>Sales by region</figcaption></figure>\n<table><thead><tr><th>Region</th><th>Sales</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>`;\nreturn await fs.writeFile(\"sales-report-draft.html\", html);"
+          }
+        }
+      ]
+    },
+    {
+      "expect_tool_result": {
+        "contains": "sales-report-draft"
+      },
+      "tool_calls": [
+        {
+          "name": "render_html",
+          "input": {
+            "file": "sales-report-draft.html",
+            "name": "Sales report"
+          },
+          "input_from_result": {
+            "file": "value"
+          }
+        }
+      ]
+    },
+    {
+      "expect_tool_result": {
+        "contains": "\"status\":\"ok\""
+      },
+      "text": "I saved the report in **Files**. It includes a chart of the four regions and a table of their totals."
+    }
+  ]
+}

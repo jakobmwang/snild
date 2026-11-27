@@ -46,6 +46,7 @@ PAGE = "index.html"
 
 
 FRAME_PAGES = {"frames/code.html": "code", "frames/duckdb.html": "duckdb", "frames/pdf.html": "pdf"}
+REPORT_STYLE = "css/report.css"  # the one stylesheet a report carries, inline, allowed by its hash
 INLINE_SCRIPT = re.compile(r'<script(?: type="importmap")?>(.*?)</script>', re.S)  # not <script src=...>
 
 
@@ -83,6 +84,15 @@ class VersionedAssets(StaticFiles):
             base = f"{scope.get('snild_origin', '')}{self.prefix}"
             response.headers["content-security-policy"] = frame_csp(kind, base, self.hashes.get(path, []))
         return response
+
+
+def style_hash(path: Path) -> str | None:
+    """'sha256-...' of a stylesheet, as a policy names an inline style (None if there is no such file). Line ends
+    are taken as the HTML parser gives them (LF), as the page embeds the text."""
+    if not path.is_file():
+        return None
+    text = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return "sha256-" + base64.b64encode(hashlib.sha256(text).digest()).decode()
 
 
 def asset_version(web_dir: Path) -> str:
@@ -139,7 +149,9 @@ def create_app(config: Config, providers: dict[str, Provider] | None = None, web
                   openapi_url=None)
     version = asset_version(web_dir)
     frames = tuple(f"/assets/{version}/{page}" for page in FRAME_PAGES)
-    app.add_middleware(SecurityMiddleware, public_url=config.public_url, frames=frames)
+    report_style = style_hash(web_dir / REPORT_STYLE)
+    app.state.report_style = report_style
+    app.add_middleware(SecurityMiddleware, public_url=config.public_url, frames=frames, report_style=report_style)
     app.include_router(api.router)
 
     @app.exception_handler(api.ApiError)

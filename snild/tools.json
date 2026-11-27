@@ -18,15 +18,16 @@
     },
     {
       "name": "render_html",
-      "enabled": false,
-      "description": "Show the user a page you wrote: a whole HTML document or a fragment, with its scripts running and d3 available. There is no network. You get back any errors and a short summary of what appeared, so you can check your work.",
+      "enabled": true,
+      "description": "Show the user a report you wrote in a report panel, and save it as a file in the chat they can download. Give either html (a whole HTML document or a fragment) or file (the name of an .html or .htm file in the chat, such as one your run_js code wrote with fs.writeFile: build long reports and charts that way, rather than repeating them here). A report is static: headings, text, lists, tables and SVG charts (make them with d3 in run_js and put the SVG in). Reports run no scripts and display no images or clickable links. snild supplies the stylesheet and preserves supported SVG presentation properties; anything else that would load or run is removed. You get back the saved file's name, the report's title, how many tables and charts it has, and what was removed, so you can fix it.",
       "requires": [],
       "input_schema": {
         "type": "object",
         "properties": {
-          "html": {"type": "string", "description": "The HTML to show."}
+          "html": {"type": "string", "description": "The report's HTML. Give this or file, not both."},
+          "file": {"type": "string", "description": "The name of an .html or .htm file in the chat to show as a report. Give this or html, not both."},
+          "name": {"type": "string", "description": "Optional output filename. Defaults to report.html. A name ending in neither .html nor .htm gets .html appended. A taken name gets a numbered suffix."}
         },
-        "required": ["html"],
         "additionalProperties": false
       }
     },

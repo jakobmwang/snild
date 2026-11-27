@@ -18,6 +18,7 @@ import { ComposerView } from "./composer.js";
 import { askDialog } from "./dialogs.js";
 import { el, icon } from "./dom.js";
 import { FilesPanel } from "./files-panel.js";
+import { ReportPanel } from "./report-panel.js";
 import { Menus } from "./menu.js";
 import { RailView } from "./rail.js";
 import { startFailedView } from "./status.js";
@@ -208,6 +209,10 @@ class App {
     this.transcript = new TranscriptView(this.scroller, {
       readHidden: (entry, signal) => this.tools.readHidden(entry, this.conversation?.chatId ?? null, signal),
       addToMessage: (quote) => this.#addToMessage(quote),
+      openReport: (report) => {
+        const chatId = this.conversation?.chatId;
+        if (chatId) void this.#showReport({ chatId, ...report });
+      },
     });
     this.empty = el("div", { class: "empty" });
     this.scroller.append(this.transcript.element, this.empty);
@@ -231,7 +236,22 @@ class App {
     this.savedChips = [];
     this.chipKeys = 0;
     this.tools = browserTools({ assets: new URL("../..", import.meta.url).href.replace(/\/$/, ""),
-      resultChars: info.limits.tool_result_chars, files: (chatId, signal) => this.#fileSource(chatId, signal) });
+      resultChars: info.limits.tool_result_chars, files: (chatId, signal) => this.#fileSource(chatId, signal),
+      reportStyle: info.report_style,
+      // A report a call just saved is shown if its chat is still the one open (a stopped call never gets here).
+      onReport: (chatId, file) => {
+        if (this.conversation?.chatId === chatId && this.adminHost.hidden) {
+          void this.#showReport({ chatId, id: file.id, name: file.name });
+        }
+      } });
+    this.reportPanel = new ReportPanel({
+      bytes: (chatId, fileId, signal) => this.api.fileBytes(chatId, fileId, signal),
+      style: () => this.tools.reportStyle(),
+      onClose: () => this.#closeReport(),
+      onSignedOut: () => void this.#signedOut(),
+    });
+    /** Where focus was before a report covered the chat (a narrow screen), to go back to. @type {Element | null} */
+    this.beforeReport = null;
     this.composer = new ComposerView({
       maxChars: info.limits.message_chars,
       signal: this.listeners.signal,
@@ -271,6 +291,7 @@ class App {
     this.#listenForDrops();
     this.#toggleFiles(false);
     this.adminHost = el("div", { class: "admin-view" });
+    this.workspace = el("div", { class: "workspace" }, this.chatView, this.reportPanel.element); // the chat, and a report beside it
     this.adminHost.hidden = true;
     this.shell = el("div", { class: `shell${loadRailCollapsed() ? " rail-collapsed" : ""}` },
       el("a", { href: "#message", class: "skip-link" }, text.messageLabel),
@@ -278,11 +299,12 @@ class App {
       backdrop,
       el("main", { class: "main" },
         info.emulator ? el("p", { class: "banner", role: "note" }, text.emulatorBanner) : null,
-        this.chatView, this.adminHost),
+        this.workspace, this.adminHost),
       this.live);
     this.#drawRailToggle();
     // Narrow and wide screens show the list differently: keep what can take focus right when the width changes.
-    window.matchMedia(NARROW).addEventListener("change", () => this.#drawRailToggle(), { signal: this.listeners.signal });
+    window.matchMedia(NARROW).addEventListener("change", () => this.#coverChat(), { signal: this.listeners.signal });
+    window.matchMedia(REPORT_COVERS).addEventListener("change", () => this.#coverChat(), { signal: this.listeners.signal });
     root.className = "app";
     root.replaceChildren(this.shell);
     // Escape closes the innermost thing first: a dialog (the browser does that), a menu, the rail on a
@@ -295,7 +317,10 @@ class App {
         this.#toggleRail(false);
         event.preventDefault();
       } else if (this.adminHost.hidden && this.chatView.classList.contains("files-open")) {
-        this.#toggleFiles(false);
+        this.#toggleFiles(false); // over the chat (and never open under a full-screen report)
+        event.preventDefault();
+      } else if (this.adminHost.hidden && this.reportPanel.shown) {
+        this.#closeReport();
         event.preventDefault();
       } else if (this.adminHost.hidden && this.conversation?.busy) {
         void this.conversation.stop();
@@ -324,7 +349,7 @@ class App {
     }
     const wasAdmin = !this.adminHost.hidden;
     this.adminHost.hidden = true;
-    this.chatView.hidden = false;
+    this.workspace.hidden = false;
     if (this.admin) this.admin.page = null; // next time: a fresh load
     if (this.conversation && this.conversation.chatId === route.chatId) {
       this.#draw("all"); // back from the admin area: the chat (and its draft) are as they were
@@ -343,6 +368,9 @@ class App {
   /** @param {"people" | "settings"} page */
   #showAdmin(page) {
     this.#toggleRail(false, { narrowOnly: true });
+    this.reportPanel.close();
+    this.beforeReport = null;
+    this.#coverChat();
     if (this.adminHost.hidden) this.lastChatId = this.conversation?.chatId ?? null;
     if (!this.admin) {
       this.admin = new AdminView({
@@ -356,7 +384,7 @@ class App {
       });
       this.adminHost.replaceChildren(this.admin.element);
     }
-    this.chatView.hidden = true;
+    this.workspace.hidden = true;
     this.adminHost.hidden = false;
     this.admin.show(page);
   }
@@ -397,6 +425,9 @@ class App {
     this.transcript.forget();
     this.composer.setText(loadDraft(this.user.id, chatId));
     this.#setChips([], false); // an upload still under way for the chat that was open lands there, in its files
+    this.reportPanel.close();
+    this.beforeReport = null;
+    this.#coverChat();
     this.savedChips = loadChips(this.user.id, chatId);
     this.chipsPending = this.savedChips.length > 0; // restored once the chat's files are read
     this.composer.setPending(this.chipsPending);
@@ -675,6 +706,8 @@ class App {
     // A file deleted (here, in the panel, or in another tab) is no longer attached to the draft, and the hidden
     // text shown from it is put away.
     const ids = new Set(list.map((file) => file.id));
+    const shown = this.reportPanel.current;
+    if (shown && shown.chatId === this.files.chatId && !ids.has(shown.id)) this.reportPanel.gone();
     const kept = this.chips.filter((chip) => !chip.file || ids.has(chip.file.id));
     if (kept.length !== this.chips.length) this.#setChips(kept);
     this.transcript.filesNow(ids);
@@ -695,6 +728,53 @@ class App {
         return text.failed("");
       },
     });
+  }
+
+  /**
+   * Show a report of a chat: looked up in the chat's files first (one no longer there says so, without asking for
+   * it). On a narrow screen it covers the chat: the chat and the list cannot be reached meanwhile, and focus is in
+   * the report's controls.
+   * @param {{chatId: string, id: string, name: string}} report
+   */
+  async #showReport(report) {
+    if (!this.reportPanel.shown) this.beforeReport = document.activeElement;
+    if (window.matchMedia(REPORT_COVERS).matches) this.#toggleFiles(false);
+    // Begun first: a later open, Close, another chat or the admin area ends it, and so everything below.
+    const signal = this.reportPanel.begin(report);
+    this.#coverChat();
+    if (window.matchMedia(REPORT_COVERS).matches) this.reportPanel.focus();
+    if (this.files.chatId !== report.chatId) return this.reportPanel.fail(text.reportListFailed);
+    if (!this.files.loaded) { // wait for the list: a read is started if none is under way
+      if (!this.files.reading) void this.files.refresh();
+      await this.files.settled(signal);
+    }
+    if (signal.aborted) return;
+    if (!this.files.loaded) return this.reportPanel.fail(text.reportListFailed);
+    const listed = this.files.list.find((file) => file.id === report.id);
+    if (!listed) return this.reportPanel.gone(); // without asking for it
+    return this.reportPanel.load(listed.size, signal);
+  }
+
+  /** Close the report, putting focus back where it was before it (or in the composer). */
+  #closeReport() {
+    const had = this.reportPanel.element.contains(document.activeElement);
+    this.reportPanel.close();
+    this.#coverChat();
+    const back = /** @type {HTMLElement | null} */ (this.beforeReport);
+    this.beforeReport = null;
+    if (had) {
+      if (back?.isConnected && typeof back.focus === "function" && !back.closest("[inert]")) back.focus();
+      else this.composer.focus();
+    }
+  }
+
+  /** A report open on a narrow screen covers the chat: what it covers cannot take focus or be used. */
+  #coverChat() {
+    const covered = this.reportPanel.shown && window.matchMedia(REPORT_COVERS).matches;
+    this.chatView.inert = covered;
+    this.#drawRailToggle(); // the list too (or as its own state says)
+    const rail = /** @type {HTMLElement | null} */ (this.shell?.querySelector(".rail"));
+    if (rail && covered) rail.inert = true;
   }
 
   /**
@@ -890,6 +970,7 @@ class App {
     this.shell.inert = true; // still on screen for a moment, but nothing on it can be used any more
     this.listeners.abort();
     this.conversation?.dispose();
+    this.reportPanel.close();
     this.tools.dispose();
     this.sync.close();
     this.router.dispose();
@@ -941,6 +1022,7 @@ class App {
 }
 
 const NARROW = "(max-width: 760px)";
+const REPORT_COVERS = "(max-width: 959px)"; // below this, a report covers the page rather than sharing it
 const RAIL_KEY = "snild.rail";
 
 /** Whether the chat list was folded away on a wide screen (this browser only). */
